@@ -1,0 +1,60 @@
+/**
+ * Visualizer & Frequency Response Canvas Styling
+ */
+
+.visualizer-wrapper {
+  background: linear-gradient(180deg, #0d0b10 0%, #16131c 100%);
+  border-radius: var(--md-shape-corner-large);
+  border: 1px solid rgba(208, 188, 255, 0.12);
+  padding: 12px 14px 8px 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.visualizer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.visualizer-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--md-sys-color-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.visualizer-mode-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--md-shape-corner-full);
+  background-color: rgba(208, 188, 255, 0.1);
+  color: var(--md-sys-color-secondary);
+}
+
+.canvas-container {
+  position: relative;
+  width: 100%;
+  height: 120px;
+}
+
+#visualizerCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.freq-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 6px 0 6px;
+  font-size: 9px;
+  color: var(--md-sys-color-outline);
+  font-feature-settings: "tnum";
+}

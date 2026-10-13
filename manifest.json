@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "JamesDSP for Chrome",
+  "version": "1.0.1",
+  "description": "High-fidelity audio processor inspired by JamesDSP with Material You UI, multi-band EQ, convolver, tube modeling, and crossfeed.",
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "storage",
+    "sidePanel",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "JamesDSP Audio Studio",
+    "default_popup": "ui/index.html",
+    "default_icon": {
+      "16": "ui/assets/icons/icon16.png",
+      "48": "ui/assets/icons/icon48.png",
+      "128": "ui/assets/icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "ui/index.html"
+  },
+  "icons": {
+    "16": "ui/assets/icons/icon16.png",
+    "48": "ui/assets/icons/icon48.png",
+    "128": "ui/assets/icons/icon128.png"
+  }
+}

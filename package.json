@@ -1,0 +1,9 @@
+{
+  "name": "jamesdsp-chrome-extension",
+  "version": "1.0.0",
+  "description": "JamesDSP for Chrome with Material You UI",
+  "type": "module",
+  "scripts": {
+    "test": "node test-dsp.js"
+  }
+}
