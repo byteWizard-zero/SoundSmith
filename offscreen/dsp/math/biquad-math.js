@@ -88,4 +88,16 @@ export class BiquadMath {
     const magSquared = Math.max(1e-12, num / Math.max(1e-12, den));
     return 10 * Math.log10(magSquared);
   }
+
+  static peaking(fc, gainDb, Q = 1.414, srate = 48000) {
+    return this.computeCoefficients('PK', fc, gainDb, Q, srate);
+  }
+
+  static lowShelf(fc, gainDb, Q = 0.707, srate = 48000) {
+    return this.computeCoefficients('LSC', fc, gainDb, Q, srate);
+  }
+
+  static highShelf(fc, gainDb, Q = 0.707, srate = 48000) {
+    return this.computeCoefficients('HSC', fc, gainDb, Q, srate);
+  }
 }
