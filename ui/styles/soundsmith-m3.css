@@ -1,0 +1,540 @@
+/**
+ * SoundSmith Material You (M3) Core UI Stylesheet
+ * Faithfully mirrors RootlessJamesDSP v1.6.13 Android UX.
+ */
+
+@import url('soundsmith-tokens.css');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  font-family: var(--font-family-primary);
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-text-primary);
+  width: 100%;
+  min-width: 380px;
+  max-width: 540px;
+  margin: 0 auto;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+  padding-bottom: 96px; /* Space for floating master dock */
+}
+
+/* App Bar & Device Profile Header */
+.app-header {
+  padding: 16px 20px 10px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--md-sys-color-background);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.app-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--md-sys-color-primary), var(--md-sys-color-tertiary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-color-on-primary);
+}
+
+.brand-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--md-sys-color-text-primary);
+}
+
+.app-bar-tab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--md-sys-color-surface-container);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  font-size: 11px;
+  color: var(--md-sys-color-text-secondary);
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--md-sys-color-text-tertiary);
+  transition: all var(--motion-duration-medium) ease;
+}
+
+.status-dot.active {
+  background-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 8px var(--md-sys-color-primary);
+}
+
+/* Active Device Profile Card (from Video frames 001-003) */
+.device-profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--md-sys-color-surface-container);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  cursor: pointer;
+  transition: background-color var(--motion-duration-short) ease;
+}
+
+.device-profile-card:hover {
+  background-color: var(--md-sys-color-surface-container-high);
+}
+
+.profile-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-icon {
+  color: var(--md-sys-color-primary);
+}
+
+.profile-info h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--md-sys-color-text-secondary);
+}
+
+.profile-info p {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--md-sys-color-text-primary);
+}
+
+/* Category Filter Chips Carousel */
+.category-chips-carousel {
+  display: flex;
+  gap: 8px;
+  padding: 4px 20px 8px 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.category-chips-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.m3-chip {
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  background-color: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-text-secondary);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--motion-duration-medium) var(--motion-easing-standard);
+}
+
+.m3-chip.active {
+  background-color: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+/* Main Cards Container */
+.module-cards-list {
+  padding: 4px 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* M3 Effect Card with Dynamic Header Transition */
+.m3-effect-card {
+  background-color: var(--md-sys-color-surface-container);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  overflow: hidden;
+  transition: border-color var(--motion-duration-medium) ease;
+}
+
+.m3-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  cursor: pointer;
+  background-color: var(--md-sys-color-surface-container);
+  transition: background-color var(--motion-duration-medium) var(--motion-easing-standard),
+              color var(--motion-duration-medium) var(--motion-easing-standard);
+}
+
+/* Transform header to vibrant container when active (as seen in video frames 009, 016, 020) */
+.m3-effect-card.is-active .m3-card-header {
+  background-color: var(--md-sys-color-primary-container);
+}
+
+.card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.card-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-color-text-primary);
+  transition: color var(--motion-duration-short) ease;
+}
+
+.m3-effect-card.is-active .card-icon {
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.card-text h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--md-sys-color-text-primary);
+  letter-spacing: -0.2px;
+  transition: color var(--motion-duration-short) ease;
+}
+
+.m3-effect-card.is-active .card-text h3 {
+  color: #ffffff;
+}
+
+.card-text p {
+  font-size: 12px;
+  color: var(--md-sys-color-text-secondary);
+  transition: color var(--motion-duration-short) ease;
+}
+
+.m3-effect-card.is-active .card-text p {
+  color: var(--md-sys-color-on-primary-container);
+  opacity: 0.9;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chevron-arrow {
+  color: var(--md-sys-color-text-secondary);
+  transition: transform var(--motion-duration-medium) var(--motion-easing-standard);
+}
+
+.m3-effect-card.is-active .chevron-arrow {
+  color: var(--md-sys-color-on-primary-container);
+}
+
+.m3-effect-card.expanded .chevron-arrow {
+  transform: rotate(180deg);
+}
+
+/* Card Body / Nested Controls */
+.m3-card-body {
+  padding: 16px 18px 20px 18px;
+  display: none;
+  flex-direction: column;
+  gap: 18px;
+  background-color: var(--md-sys-color-surface-container);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.m3-effect-card.expanded .m3-card-body {
+  display: flex;
+}
+
+/* M3 Pill Switch Component */
+.m3-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 30px;
+}
+
+.m3-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-track {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--md-sys-color-surface-container-highest);
+  border: 2px solid var(--md-sys-color-outline);
+  border-radius: var(--radius-pill);
+  transition: all var(--motion-duration-medium) var(--motion-easing-standard);
+}
+
+.switch-track:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 5px;
+  bottom: 5px;
+  background-color: var(--md-sys-color-text-secondary);
+  border-radius: 50%;
+  transition: all var(--motion-duration-medium) var(--motion-easing-emphasized);
+}
+
+.m3-switch input:checked + .switch-track {
+  background-color: var(--md-sys-color-primary);
+  border-color: var(--md-sys-color-primary);
+}
+
+.m3-switch input:checked + .switch-track:before {
+  transform: translateX(20px);
+  background-color: var(--md-sys-color-on-primary);
+  width: 18px;
+  height: 18px;
+  bottom: 4px;
+  left: 4px;
+}
+
+/* M3 High-Precision Slider with Floating Value Tooltip Pill (from Video frames 004-008, 016-019) */
+.precision-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.slider-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.slider-label {
+  font-weight: 500;
+  color: var(--md-sys-color-text-primary);
+}
+
+.slider-readout {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+}
+
+.slider-track-wrapper {
+  position: relative;
+  width: 100%;
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+/* Floating Tooltip Pill with Pointer Beak (Key Video Finding) */
+.floating-tooltip-pill {
+  position: absolute;
+  bottom: 30px;
+  transform: translateX(-50%);
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--motion-duration-short) ease, transform var(--motion-duration-short) ease;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+/* Downward pointer beak */
+.floating-tooltip-pill:after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 4px;
+  border-style: solid;
+  border-color: var(--md-sys-color-primary) transparent transparent transparent;
+}
+
+.slider-track-wrapper.is-dragging .floating-tooltip-pill {
+  opacity: 1;
+}
+
+.m3-precision-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--md-sys-color-surface-container-highest);
+  outline: none;
+  cursor: pointer;
+  position: relative;
+}
+
+.m3-precision-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  transition: transform var(--motion-duration-short) ease, box-shadow var(--motion-duration-short) ease;
+  position: relative;
+  z-index: 5;
+}
+
+/* Radial touch halo on hover/drag */
+.m3-precision-range:hover::-webkit-slider-thumb,
+.slider-track-wrapper.is-dragging .m3-precision-range::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 10px rgba(82, 220, 116, 0.15);
+}
+
+/* Floating Master Control Dock (from Video frames 001-003, 089) */
+.floating-master-dock {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 40px);
+  max-width: 480px;
+  height: 64px;
+  background-color: var(--md-sys-color-surface-container-high);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+
+.dock-action-btn {
+  background: none;
+  border: none;
+  color: var(--md-sys-color-text-secondary);
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--motion-duration-short) ease;
+}
+
+.dock-action-btn:hover {
+  background-color: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-text-primary);
+}
+
+/* Elevated Center Power FAB */
+.master-power-fab {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background-color: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--motion-duration-medium) var(--motion-easing-emphasized);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.master-power-fab.is-on {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  box-shadow: 0 0 20px var(--md-sys-color-glow);
+  transform: scale(1.05);
+}
+
+/* Floating Context Menu Popup (from Video frame 089) */
+.dock-overflow-menu {
+  position: absolute;
+  bottom: 74px;
+  right: 12px;
+  background-color: var(--md-sys-color-surface-container-highest);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  display: none;
+  flex-direction: column;
+  min-width: 190px;
+  overflow: hidden;
+  z-index: 110;
+}
+
+.dock-overflow-menu.open {
+  display: flex;
+}
+
+.menu-item {
+  padding: 12px 18px;
+  color: var(--md-sys-color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background-color var(--motion-duration-short) ease;
+}
+
+.menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
