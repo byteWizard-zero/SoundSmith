@@ -29,4 +29,21 @@ export class MasterLimiter {
     const linearGain = Math.pow(10, this.preampGainDb / 20);
     this.preampNode.gain.value = linearGain;
   }
+
+  setThreshold(thresholdDb) {
+    this.thresholdDb = Math.max(-12, Math.min(0, thresholdDb));
+    this.limiterNode.threshold.setTargetAtTime(this.thresholdDb, this.ctx.currentTime, 0.02);
+  }
+
+  setEnabled(enabled) {
+    this.enabled = !!enabled;
+    const t = this.ctx.currentTime;
+    if (this.enabled) {
+      this.limiterNode.threshold.setTargetAtTime(this.thresholdDb || -0.5, t, 0.02);
+      this.limiterNode.ratio.setTargetAtTime(20.0, t, 0.02);
+    } else {
+      this.limiterNode.threshold.setTargetAtTime(0.0, t, 0.02);
+      this.limiterNode.ratio.setTargetAtTime(1.0, t, 0.02);
+    }
+  }
 }

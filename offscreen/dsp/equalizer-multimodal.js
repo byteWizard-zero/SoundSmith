@@ -34,8 +34,16 @@ export class MultimodalEqualizer {
   }
 
   _rebuildFilterBank() {
-    this.effectNode.disconnect();
-    this.filters.forEach(f => f.disconnect());
+    try { this.effectNode.disconnect(); } catch (e) {}
+    this.filters.forEach(band => {
+      if (Array.isArray(band)) {
+        band.forEach(f => {
+          try { f.disconnect(); } catch (e) {}
+        });
+      } else if (band && typeof band.disconnect === 'function') {
+        try { band.disconnect(); } catch (e) {}
+      }
+    });
     this.filters = [];
 
     let prevNode = this.effectNode;
@@ -107,6 +115,22 @@ export class MultimodalEqualizer {
   updateBypassState() {
     this.bypassNode.gain.value = this.enabled ? 0.0 : 1.0;
     this.effectNode.gain.value = this.enabled ? 1.0 : 0.0;
+  }
+
+  setBandGain(bandIndex, gainDb) {
+    return this.setGain(bandIndex, gainDb);
+  }
+
+  setFilterMode(typeIndex) {
+    return this.setFilterType(typeIndex);
+  }
+
+  setInterpolation(interpIndex) {
+    return this.setInterpolator(interpIndex);
+  }
+
+  getFrequencyResponse(queryFrequencies) {
+    return this.getInterpolatedCurve(queryFrequencies);
   }
 
   getInterpolatedCurve(queryFrequencies) {

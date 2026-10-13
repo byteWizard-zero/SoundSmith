@@ -1,5 +1,5 @@
 /**
- * JamesDSP Offscreen Audio Controller
+ * SoundSmith Offscreen Audio Controller
  * Manages tab audio capture, AudioContext lifecycle, and DSP graph communications.
  */
 
@@ -17,7 +17,8 @@ async function initAudioContext() {
       latencyHint: 'interactive'
     });
     dspEngine = new DspEngine(audioCtx);
-    console.log('[JamesDSP Offscreen] AudioContext and DSP Engine initialized.');
+    console.log('[SoundSmith Offscreen] AudioContext and DSP Engine initialized.');
+    await restoreSavedSettings();
   }
   if (audioCtx.state === 'suspended') {
     await audioCtx.resume();
@@ -28,15 +29,27 @@ async function initAudioContext() {
 async function restoreSavedSettings() {
   if (!dspEngine) return;
   try {
-    const data = await chrome.storage.local.get('jamesdsp_state');
-    if (data && data.jamesdsp_state) {
-      dspEngine.applyPreset(data.jamesdsp_state);
-      console.log('[JamesDSP Offscreen] Restored DSP state from storage.');
+    const data = await chrome.storage.local.get([
+      'soundsmith_current_profile',
+      'soundsmith_headset',
+      'soundsmith_speaker',
+      'soundsmith_bluetooth',
+      'soundsmith_usb',
+      'jamesdsp_state'
+    ]);
+    const profile = data?.soundsmith_current_profile || 'headset';
+    const state = data?.[`soundsmith_${profile}`] || data?.jamesdsp_state;
+    if (state) {
+      dspEngine.applyPreset(state);
+      console.log('[SoundSmith Offscreen] Restored DSP state from storage for profile:', profile);
     }
   } catch (err) {
-    console.warn('[JamesDSP Offscreen] Could not read storage:', err);
+    console.warn('[SoundSmith Offscreen] Could not read storage:', err);
   }
 }
+
+// Auto-initialize AudioContext on load
+initAudioContext().catch(console.warn);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'OFFSCREEN_INIT_STREAM') {
@@ -58,65 +71,92 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // DSP Commands from UI
-  if (dspEngine) {
-    if (message.action === 'DSP_SET_MASTER_POWER') {
-      dspEngine.setMasterPower(message.enabled);
-      sendResponse({ success: true });
-      return false;
-    }
+  // Ensure AudioContext and dspEngine are ready before executing DSP commands
+  const ensureReady = async () => {
+    if (!dspEngine) await initAudioContext();
+    return dspEngine;
+  };
 
-    if (message.action === 'DSP_TOGGLE_MODULE') {
-      dspEngine.toggleModule(message.module, message.enabled);
+  if (message.action === 'DSP_SET_MASTER_POWER') {
+    ensureReady().then(engine => {
+      engine?.setMasterPower(message.enabled);
       sendResponse({ success: true });
-      return false;
-    }
+    });
+    return true;
+  }
 
-    if (message.action === 'DSP_SET_PARAM') {
-      dspEngine.setModuleParam(message.module, message.param, message.value);
+  if (message.action === 'DSP_TOGGLE_MODULE') {
+    ensureReady().then(engine => {
+      engine?.toggleModule(message.module, message.enabled);
       sendResponse({ success: true });
-      return false;
-    }
+    });
+    return true;
+  }
 
-    if (message.action === 'DSP_APPLY_PRESET') {
-      dspEngine.applyPreset(message.preset);
+  if (message.action === 'DSP_SET_PARAM') {
+    ensureReady().then(engine => {
+      engine?.setModuleParam(message.module, message.param, message.value);
       sendResponse({ success: true });
-      return false;
-    }
+    });
+    return true;
+  }
 
-    if (message.action === 'DSP_GET_FFT') {
+  if (message.action === 'DSP_APPLY_PRESET') {
+    ensureReady().then(engine => {
+      engine?.applyPreset(message.preset);
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
+  if (message.action === 'DSP_GET_FFT') {
+    if (dspEngine) {
       sendResponse({ data: dspEngine.getFrequencyData() });
-      return false;
+    } else {
+      sendResponse({ data: [] });
     }
+    return false;
+  }
 
-    if (message.action === 'DSP_GET_RESPONSE') {
+  if (message.action === 'DSP_GET_RESPONSE') {
+    if (dspEngine) {
       sendResponse({ curve: dspEngine.getCombinedResponse(message.frequencies) });
-      return false;
+    } else {
+      sendResponse({ curve: [] });
     }
+    return false;
+  }
 
-    if (message.action === 'DSP_LOAD_IR_BUFFER') {
-      dspEngine.convolver.loadImpulseResponseFromArrayBuffer(message.buffer, message.name)
+  if (message.action === 'DSP_LOAD_IR_BUFFER') {
+    ensureReady().then(engine => {
+      engine?.convolver.loadImpulseResponseFromArrayBuffer(message.buffer, message.name)
         .then(result => sendResponse({ success: result }))
         .catch(err => sendResponse({ success: false, error: err.message }));
-      return true;
-    }
+    });
+    return true;
+  }
 
-    if (message.action === 'DSP_LOAD_DDC') {
-      const ok = dspEngine.ddc.parseVdcString(message.vdcText, message.name);
+  if (message.action === 'DSP_LOAD_DDC') {
+    ensureReady().then(engine => {
+      const ok = engine?.ddc.parseVdcString(message.vdcText, message.name);
       sendResponse({ success: ok });
-      return false;
-    }
+    });
+    return true;
+  }
 
-    if (message.action === 'DSP_LOAD_LIVEPROG') {
-      const res = dspEngine.liveprog.loadScript(message.scriptText, message.name);
+  if (message.action === 'DSP_LOAD_LIVEPROG') {
+    ensureReady().then(engine => {
+      const res = engine?.liveprog.loadScript(message.scriptText, message.name);
       sendResponse(res);
-      return false;
-    }
+    });
+    return true;
+  }
 
-    if (message.action === 'DSP_EXPORT_STATE') {
-      sendResponse({ state: dspEngine.exportState() });
-      return false;
-    }
+  if (message.action === 'DSP_EXPORT_STATE') {
+    ensureReady().then(engine => {
+      sendResponse({ state: engine?.exportState() });
+    });
+    return true;
   }
 });
 
@@ -124,9 +164,17 @@ async function handleInitStream(streamId, tabId, sendResponse) {
   try {
     await initAudioContext();
 
-    // Close any previous stream
+    // Close any previous stream cleanly
     if (activeMediaStream) {
-      activeMediaStream.getTracks().forEach(track => track.stop());
+      activeMediaStream.getTracks().forEach(track => {
+        try { track.stop(); } catch (e) {}
+      });
+      activeMediaStream = null;
+    }
+
+    if (currentSourceNode) {
+      try { currentSourceNode.disconnect(); } catch (e) {}
+      currentSourceNode = null;
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -142,40 +190,43 @@ async function handleInitStream(streamId, tabId, sendResponse) {
     activeMediaStream = stream;
     activeTabId = tabId;
 
-    if (currentSourceNode) {
-      currentSourceNode.disconnect();
-    }
-
     currentSourceNode = audioCtx.createMediaStreamSource(stream);
     currentSourceNode.connect(dspEngine.masterInput);
 
     // Apply stored user settings immediately to the active stream
     await restoreSavedSettings();
 
-    // When the stream ends (e.g. user closes tab or navigates away)
+    // Resume AudioContext if suspended
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+
+    // When the stream ends (e.g. user closes tab, navigates away)
     stream.getAudioTracks()[0].onended = () => {
-      console.log('[JamesDSP Offscreen] Tab audio capture ended.');
-      activeMediaStream = null;
-      activeTabId = null;
+      console.log('[SoundSmith Offscreen] Tab audio capture track ended.');
+      handleStopStream();
     };
 
-    console.log('[JamesDSP Offscreen] Stream successfully attached to DSP graph for tab:', tabId);
-    sendResponse({ success: true, tabId });
+    console.log('[SoundSmith Offscreen] Stream successfully attached to DSP graph for tab:', tabId);
+    sendResponse({ success: true, active: true, tabId });
   } catch (err) {
-    console.error('[JamesDSP Offscreen] Failed to attach stream:', err);
-    sendResponse({ success: false, error: err.message });
+    console.error('[SoundSmith Offscreen] Failed to attach stream:', err);
+    sendResponse({ success: false, active: false, error: err.message });
   }
 }
 
 function handleStopStream(sendResponse) {
   if (activeMediaStream) {
-    activeMediaStream.getTracks().forEach(track => track.stop());
+    activeMediaStream.getTracks().forEach(track => {
+      try { track.stop(); } catch (e) {}
+    });
     activeMediaStream = null;
   }
   if (currentSourceNode) {
-    currentSourceNode.disconnect();
+    try { currentSourceNode.disconnect(); } catch (e) {}
     currentSourceNode = null;
   }
   activeTabId = null;
-  sendResponse({ success: true });
+  console.log('[SoundSmith Offscreen] Tab audio capture stopped, tab audio restored.');
+  if (sendResponse) sendResponse({ success: true, active: false });
 }

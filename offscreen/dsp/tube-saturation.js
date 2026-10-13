@@ -64,6 +64,12 @@ export class TubeSaturation {
     this._updateCurve();
   }
 
+  setDrive(driveValue) {
+    this.drive = driveValue;
+    const db = driveValue > 15 ? -3.0 + (Math.min(100, Math.max(0, driveValue)) / 100) * 15.0 : driveValue;
+    this.setPreamp(db);
+  }
+
   setEnabled(enabled) {
     this.enabled = !!enabled;
     this.updateBypassState();

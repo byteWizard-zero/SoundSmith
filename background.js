@@ -1,5 +1,5 @@
 /**
- * JamesDSP for Chrome - Background Service Worker
+ * SoundSmith for Chrome - Background Service Worker
  * Manages tab audio capture, offscreen document lifecycle, and message routing.
  */
 
@@ -9,7 +9,14 @@ chrome.runtime.onInstalled.addListener(() => {
   if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
   }
-  console.log('[JamesDSP] Extension installed and initialized.');
+  console.log('[SoundSmith] Extension installed and initialized.');
+});
+
+// Clean up capture when captured tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.runtime.sendMessage({ action: 'OFFSCREEN_STOP_STREAM', tabId }, () => {
+    if (chrome.runtime.lastError) {} // Suppress
+  });
 });
 
 /**
@@ -34,10 +41,10 @@ async function ensureOffscreenDocument() {
       reasons: ['AUDIO_PLAYBACK', 'USER_MEDIA'],
       justification: 'Capture and process tab audio via Web Audio API'
     });
-    console.log('[JamesDSP] Offscreen document created with AUDIO_PLAYBACK and USER_MEDIA.');
+    console.log('[SoundSmith] Offscreen document created with AUDIO_PLAYBACK and USER_MEDIA.');
   } catch (err) {
     if (!err.message.includes('Only a single offscreen document may be created')) {
-      console.error('[JamesDSP] Error creating offscreen document:', err);
+      console.error('[SoundSmith] Error creating offscreen document:', err);
       throw err;
     }
   }
@@ -59,8 +66,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Async response
   }
 
-  if (message.action === 'STOP_TAB_CAPTURE') {
+  if (message.action === 'STOP_TAB_CAPTURE' || message.action === 'POPUP_STOP_CAPTURE') {
     handleStopCapture(message.tabId, sendResponse);
+    return true;
+  }
+
+  if (message.action === 'POPUP_TOGGLE_CAPTURE') {
+    handleToggleCapture(message.tabId, sendResponse);
     return true;
   }
 
@@ -85,31 +97,56 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+async function handleToggleCapture(targetTabId, sendResponse) {
+  try {
+    await ensureOffscreenDocument();
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_GET_STATUS' }, (status) => {
+      if (status && status.active) {
+        // Active -> Stop capture and release tab
+        handleStopCapture(targetTabId, sendResponse);
+      } else {
+        // Inactive -> Start capture
+        handleStartCapture(targetTabId, sendResponse);
+      }
+    });
+  } catch (err) {
+    sendResponse({ success: false, error: err.message });
+  }
+}
+
 async function handleStartCapture(targetTabId, sendResponse) {
   try {
     await ensureOffscreenDocument();
 
-    // Acquire streamId from chrome.tabCapture
-    chrome.tabCapture.getMediaStreamId({ targetTabId }, (streamId) => {
-      if (chrome.runtime.lastError || !streamId) {
-        const errMsg = chrome.runtime.lastError?.message || 'Failed to capture tab audio.';
-        console.error('[JamesDSP] Failed to getMediaStreamId:', errMsg);
-        sendResponse({ success: false, error: errMsg });
-        return;
-      }
+    // Release any previous capture first so Chrome doesn't throw a conflict
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_STOP_STREAM' }, () => {
+      if (chrome.runtime.lastError) {} // Ignore
 
-      // Forward streamId to offscreen document
-      chrome.runtime.sendMessage({
-        action: 'OFFSCREEN_INIT_STREAM',
-        streamId,
-        tabId: targetTabId
-      }, (res) => {
-        sendResponse(res || { success: true });
-      });
+      // Small delay to let Chrome release previous stream
+      setTimeout(() => {
+        // Acquire streamId from chrome.tabCapture
+        chrome.tabCapture.getMediaStreamId({ targetTabId }, (streamId) => {
+          if (chrome.runtime.lastError || !streamId) {
+            const errMsg = chrome.runtime.lastError?.message || 'Failed to capture tab audio.';
+            console.error('[SoundSmith] Failed to getMediaStreamId:', errMsg);
+            sendResponse({ success: false, active: false, error: errMsg });
+            return;
+          }
+
+          // Forward streamId to offscreen document
+          chrome.runtime.sendMessage({
+            action: 'OFFSCREEN_INIT_STREAM',
+            streamId,
+            tabId: targetTabId
+          }, (res) => {
+            sendResponse(res || { success: true, active: true });
+          });
+        });
+      }, 50);
     });
   } catch (err) {
-    console.error('[JamesDSP] handleStartCapture error:', err);
-    sendResponse({ success: false, error: err.message });
+    console.error('[SoundSmith] handleStartCapture error:', err);
+    sendResponse({ success: false, active: false, error: err.message });
   }
 }
 
@@ -119,9 +156,9 @@ async function handleStopCapture(targetTabId, sendResponse) {
       action: 'OFFSCREEN_STOP_STREAM',
       tabId: targetTabId
     }, (res) => {
-      sendResponse(res || { success: true });
+      sendResponse(res || { success: true, active: false });
     });
   } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    sendResponse({ success: false, active: false, error: err.message });
   }
 }

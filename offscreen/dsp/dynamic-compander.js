@@ -112,6 +112,27 @@ export class DynamicCompander {
     }
   }
 
+  setParam(paramName, value) {
+    const t = this.ctx.currentTime;
+    switch (paramName) {
+      case 'threshold':
+        this.bands.forEach(b => b.comp.threshold.setTargetAtTime(value, t, 0.02));
+        break;
+      case 'ratio':
+        this.bands.forEach(b => b.comp.ratio.setTargetAtTime(value, t, 0.02));
+        break;
+      case 'attack':
+        this.bands.forEach(b => b.comp.attack.setTargetAtTime(Math.max(0.001, value / 1000), t, 0.02));
+        break;
+      case 'release':
+        this.bands.forEach(b => b.comp.release.setTargetAtTime(Math.max(0.01, value / 1000), t, 0.02));
+        break;
+      case 'timeConstant':
+        this.setTimeConstant(value);
+        break;
+    }
+  }
+
   setEnabled(enabled) {
     this.enabled = !!enabled;
     this.updateBypassState();

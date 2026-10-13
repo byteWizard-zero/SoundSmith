@@ -70,6 +70,18 @@ export class DynamicBass {
     this.boostGain.gain.value = linearGain;
   }
 
+  setFrequency(freqHz) {
+    this.cutoffFreq = Math.max(30, Math.min(300, freqHz));
+    if (this.lowpassFilter) {
+      this.lowpassFilter.frequency.setTargetAtTime(this.cutoffFreq, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  setMode(modeIndex) {
+    this.mode = Math.max(0, Math.min(2, Math.round(modeIndex)));
+    this._updateHarmonicCurve();
+  }
+
   setEnabled(enabled) {
     this.enabled = !!enabled;
     this.updateBypassState();

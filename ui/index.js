@@ -15,13 +15,13 @@ class SoundSmithApp {
     this.currentProfile = 'headset';
     this.currentTheme = 'green-apple';
     this.isAmoled = false;
-    this.masterPower = true;
+    this.masterPower = false;
     this.activeTabId = null;
     this.autoEqClient = new AutoEqClient();
 
     // Module states
     this.state = {
-      masterPower: true,
+      masterPower: false,
       preampGain: 0,
       limiterThreshold: -0.1,
       limiterEnabled: true,
@@ -68,7 +68,6 @@ class SoundSmithApp {
     this._initLiveProg();
     this._initAutoEq();
     this._initMasterDock();
-    this._initTabConnection();
 
     // Load persisted state
     await this._loadState();
@@ -122,9 +121,12 @@ class SoundSmithApp {
   }
 
   _startFftLoop() {
-    const fetchFft = () => {
-      if (this.masterPower && this.visualizer) {
+    let lastTime = 0;
+    const fetchFft = (time) => {
+      if (this.masterPower && this.visualizer && (time - lastTime > 40)) {
+        lastTime = time;
         chrome.runtime.sendMessage({ action: 'DSP_GET_FFT' }, (res) => {
+          if (chrome.runtime.lastError) return;
           if (res && res.data && res.data.length > 0) {
             this.visualizer.setFftData(res.data);
           }
@@ -185,6 +187,8 @@ class SoundSmithApp {
         action: 'DSP_TOGGLE_MODULE',
         module: dspModuleName,
         enabled
+      }, () => {
+        if (chrome.runtime.lastError) {}
       });
       this._saveStateDebounced();
     });
@@ -492,21 +496,80 @@ class SoundSmithApp {
     const fab = document.getElementById('dockMasterFab');
     const settingsBtn = document.getElementById('dockSettingsBtn');
     const overflowBtn = document.getElementById('dockOverflowBtn');
+    const sidePanelBtn = document.getElementById('openSidePanelBtn');
+    const statusText = document.getElementById('tabStatusText');
+    const statusDot = document.getElementById('statusDot');
+    const statusBadge = document.getElementById('tabStatusBadge');
 
-    // Elevated Master Power FAB
-    fab?.addEventListener('click', () => {
-      this.masterPower = !this.masterPower;
-      if (this.masterPower) {
-        fab.classList.add('active');
-      } else {
-        fab.classList.remove('active');
-      }
+    const updateStatus = (active, tabId) => {
+      this.masterPower = !!active;
       this.state.masterPower = this.masterPower;
-      chrome.runtime.sendMessage({
-        action: 'DSP_SET_MASTER_POWER',
-        enabled: this.masterPower
+      if (active) {
+        fab?.classList.add('active');
+        if (statusText) statusText.textContent = `Attached (Tab #${tabId || 'active'})`;
+        if (statusDot) statusDot.style.background = 'var(--md-sys-color-primary, #52DC74)';
+      } else {
+        fab?.classList.remove('active');
+        if (statusText) statusText.textContent = 'SoundSmith Standby';
+        if (statusDot) statusDot.style.background = '#888';
+      }
+    };
+
+    // Check live offscreen status on startup
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_GET_STATUS' }, (res) => {
+      if (chrome.runtime.lastError) return;
+      if (res) updateStatus(res.active, res.tabId);
+    });
+
+    // Unified Power Toggle: Click green button to attach or release
+    const togglePowerAndStream = () => {
+      if (!this.masterPower) {
+        if (statusText) statusText.textContent = 'Connecting...';
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (!tabs || !tabs[0]) {
+            updateStatus(false);
+            return;
+          }
+          const targetTabId = tabs[0].id;
+          chrome.runtime.sendMessage({
+            action: 'START_TAB_CAPTURE',
+            tabId: targetTabId
+          }, (res) => {
+            if (chrome.runtime.lastError || !res || !res.success) {
+              updateStatus(false);
+              const err = res?.error || chrome.runtime.lastError?.message || 'Could not attach to this tab.';
+              alert(err);
+              return;
+            }
+            updateStatus(true, targetTabId);
+            // Apply current DSP state to newly captured stream
+            chrome.runtime.sendMessage({ action: 'DSP_APPLY_PRESET', preset: this.state });
+            chrome.runtime.sendMessage({ action: 'DSP_SET_MASTER_POWER', enabled: true });
+            this._saveStateDebounced();
+          });
+        });
+      } else {
+        // Detach / Power Off: restore native tab audio
+        chrome.runtime.sendMessage({ action: 'STOP_TAB_CAPTURE' }, () => {
+          updateStatus(false);
+          this._saveStateDebounced();
+        });
+      }
+    };
+
+    // FAB click toggles power and tab capture
+    fab?.addEventListener('click', togglePowerAndStream);
+
+    // Clicking status badge also toggles power
+    statusBadge?.addEventListener('click', togglePowerAndStream);
+
+    // Side panel button
+    sidePanelBtn?.addEventListener('click', () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs && tabs[0] && chrome.sidePanel) {
+          chrome.sidePanel.open({ windowId: tabs[0].windowId }).catch(console.error);
+        }
       });
-      this._saveStateDebounced();
     });
 
     // Settings Modal
@@ -594,60 +657,14 @@ class SoundSmithApp {
     this._loadProfileState(profileKey);
   }
 
-  // --- Tab Audio Connection ---
-  _initTabConnection() {
-    const attachBtn = document.getElementById('attachTabBtn');
-    const sidePanelBtn = document.getElementById('openSidePanelBtn');
-    const statusText = document.getElementById('tabStatusText');
-    const statusDot = document.getElementById('statusDot');
-
-    const updateStatus = (active, tabId) => {
-      if (active) {
-        statusText.textContent = `Attached to Tab #${tabId}`;
-        statusDot.style.background = '#4CAF50';
-      } else {
-        statusText.textContent = 'No audio stream attached';
-        statusDot.style.background = '#888';
-      }
-    };
-
-    // Check status
-    chrome.runtime.sendMessage({ action: 'OFFSCREEN_GET_STATUS' }, (res) => {
-      if (res) updateStatus(res.active, res.tabId);
-    });
-
-    // Attach Tab button
-    attachBtn?.addEventListener('click', () => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0]) {
-          chrome.runtime.sendMessage({
-            action: 'POPUP_START_CAPTURE',
-            tabId: tabs[0].id
-          }, (res) => {
-            if (res && res.success) {
-              updateStatus(true, tabs[0].id);
-            }
-          });
-        }
-      });
-    });
-
-    // Side panel button
-    sidePanelBtn?.addEventListener('click', () => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs && tabs[0] && chrome.sidePanel) {
-          chrome.sidePanel.open({ tabId: tabs[0].id });
-        }
-      });
-    });
-  }
-
   _sendDspParam(module, param, value) {
     chrome.runtime.sendMessage({
       action: 'DSP_SET_PARAM',
       module,
       param,
       value
+    }, () => {
+      if (chrome.runtime.lastError) {} // Suppress harmless callback warnings
     });
   }
 
