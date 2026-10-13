@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="green-apple" data-theme-amoled="false">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JamesDSP Audio Studio</title>
-  <link rel="stylesheet" href="styles/material-you.css">
+  <title>SoundSmith - Audiophile DSP Studio</title>
+  <link rel="stylesheet" href="styles/soundsmith-tokens.css">
+  <link rel="stylesheet" href="styles/soundsmith-m3.css">
   <link rel="stylesheet" href="styles/visualizer.css">
 </head>
 <body>
@@ -13,12 +14,21 @@
   <header class="top-app-bar">
     <div class="brand-section">
       <div class="app-logo">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D1B20" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M2 12h3l3-9 4 18 3-9h7"/>
         </svg>
       </div>
       <div class="app-title-group">
-        <h1>JamesDSP</h1>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h1 style="font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -0.02em;">SoundSmith</h1>
+          <!-- Device Profile Selector -->
+          <select id="deviceProfileSelect" class="profile-select-chip" title="Audio Device Profile">
+            <option value="headset">🎧 Headset</option>
+            <option value="speaker">🔊 Speaker</option>
+            <option value="bluetooth">📶 Bluetooth</option>
+            <option value="usb">🔌 USB DAC</option>
+          </select>
+        </div>
         <div class="tab-badge" id="tabStatusBadge">
           <span class="status-dot" id="statusDot"></span>
           <span id="tabStatusText">No audio stream</span>
@@ -26,413 +36,646 @@
       </div>
     </div>
     <div class="app-bar-actions">
-      <button class="side-panel-btn" id="openSidePanelBtn" title="Open in Side Panel">
+      <button class="m3-icon-btn" id="attachTabBtn" title="Capture / Attach Active Tab Audio">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+      </button>
+      <button class="m3-icon-btn" id="openSidePanelBtn" title="Open in Side Panel">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>
         </svg>
       </button>
-      <button class="master-power-btn" id="masterPowerBtn">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
-        </svg>
-        <span id="masterPowerLabel">PWR OFF</span>
-      </button>
     </div>
   </header>
 
-  <!-- Dual-Layer Visualizer -->
-  <section style="padding: 12px 16px 4px 16px;">
+  <!-- Interactive Akima Spline & Spectrum Visualizer -->
+  <section class="visualizer-section">
     <div class="visualizer-wrapper">
       <div class="visualizer-header">
         <div class="visualizer-title">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
           </svg>
-          Spectrum & Response
+          Interactive Spline & Spectrum
         </div>
-        <span class="visualizer-mode-badge" id="visModeBadge">10-Band Graphic EQ</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="visualizer-mode-badge" id="splineModeBadge">Akima Spline (15-Band)</span>
+          <button class="m3-text-btn" id="btnResetEqCurve" style="font-size: 11px; padding: 2px 6px;">Reset</button>
+        </div>
       </div>
-      <div class="canvas-container">
-        <canvas id="visualizerCanvas"></canvas>
+
+      <div class="canvas-container" style="position: relative; height: 160px;">
+        <canvas id="splineCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
       </div>
+
+      <!-- Frequency Axis Labels -->
       <div class="freq-axis-labels">
-        <span>31Hz</span>
-        <span>62</span>
-        <span>125</span>
+        <span>25Hz</span>
+        <span>40</span>
+        <span>63</span>
+        <span>100</span>
+        <span>160</span>
         <span>250</span>
-        <span>500</span>
+        <span>400</span>
+        <span>630</span>
         <span>1k</span>
-        <span>2k</span>
+        <span>1.6k</span>
+        <span>2.5k</span>
         <span>4k</span>
-        <span>8k</span>
+        <span>6.3k</span>
+        <span>10k</span>
         <span>16kHz</span>
       </div>
+
+      <!-- 18-Preset Ribbon Carousel -->
+      <div class="preset-ribbon-carousel" id="presetRibbonContainer"></div>
     </div>
   </section>
 
-  <!-- Filter Chips -->
+  <!-- Filter Navigation Chips -->
   <nav class="chips-scroll">
     <button class="m3-chip active" data-category="all">All Modules</button>
-    <button class="m3-chip" data-category="eq">Equalizer</button>
-    <button class="m3-chip" data-category="bass">Bass & Dynamics</button>
-    <button class="m3-chip" data-category="spatial">Spatial & Analog</button>
-    <button class="m3-chip" id="openAutoEqModalBtn">AutoEQ Profiles 🎧</button>
-    <button class="m3-chip" id="openPresetsModalBtn">Presets ⚙️</button>
+    <button class="m3-chip" data-category="eq">Equalizer & AutoEQ</button>
+    <button class="m3-chip" data-category="dynamics">Bass & Compander</button>
+    <button class="m3-chip" data-category="spatial">Acoustics & Space</button>
+    <button class="m3-chip" data-category="analog">Analog & Tubes</button>
+    <button class="m3-chip" data-category="liveprog">LiveProg Scripts</button>
   </nav>
 
-  <!-- Main Content -->
-  <main class="content-area">
+  <!-- Main Accordion Content Area -->
+  <main class="content-area" style="padding-bottom: 96px;">
 
-    <!-- Equalizer Card -->
+    <!-- CARD 1: Master Preamp & Limiter -->
+    <article class="m3-card expanded" data-category="all" id="cardPreamp">
+      <div class="m3-card-header">
+        <div class="card-header-left">
+          <div class="card-icon-container">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="card-titles">
+            <h3>Master Preamp & Brickwall Limiter</h3>
+            <p>Input gain stage and safety lookahead ceiling</p>
+          </div>
+        </div>
+        <div class="card-controls">
+          <label class="m3-switch">
+            <input type="checkbox" id="toggleLimiter" checked>
+            <span class="m3-switch-track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="m3-card-body">
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Preamp Gain</span>
+            <span class="value-badge" id="valPreampGain">0.0 dB</span>
+          </div>
+          <input type="range" class="m3-slider" id="sliderPreampGain" min="-20" max="20" step="0.5" value="0">
+        </div>
+        <div class="slider-row" style="margin-top: 12px;">
+          <div class="slider-header">
+            <span>Safety Threshold</span>
+            <span class="value-badge" id="valLimiterThreshold">-0.1 dBFS</span>
+          </div>
+          <input type="range" class="m3-slider" id="sliderLimiterThreshold" min="-12" max="0" step="0.1" value="-0.1">
+        </div>
+      </div>
+    </article>
+
+    <!-- CARD 2: 15-Band Multimodal Equalizer -->
     <article class="m3-card expanded" data-category="eq" id="cardEqualizer">
       <div class="m3-card-header">
         <div class="card-header-left">
           <div class="card-icon-container">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+              <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
             </svg>
           </div>
           <div class="card-titles">
-            <h3>Graphic Equalizer</h3>
-            <p>Multi-band frequency response tuning</p>
+            <h3>15-Band Multimodal Equalizer</h3>
+            <p>FIR Min-Phase & IIR cascade with Akima spline</p>
           </div>
         </div>
         <div class="card-controls">
           <label class="m3-switch">
-            <input type="checkbox" id="switchEq" checked>
-            <span class="switch-slider"></span>
+            <input type="checkbox" id="toggleEqualizer" checked>
+            <span class="m3-switch-track"></span>
           </label>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
         </div>
       </div>
       <div class="m3-card-body">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div class="m3-segmented-control" style="width: 170px;">
-            <button class="segmented-btn active" id="btnEq10">10 Bands</button>
-            <button class="segmented-btn" id="btnEq15">15 Bands</button>
-          </div>
-          <button class="m3-action-btn outlined" id="btnResetEq" style="padding: 4px 12px; font-size: 11px;">Reset Flat</button>
+        <!-- Mode controls -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <select id="eqFilterTypeSelect" class="m3-select" style="flex: 1;">
+            <option value="0">FIR Minimum Phase (Audio Grade)</option>
+            <option value="1">IIR 4th Order Cascade</option>
+            <option value="2">IIR 6th Order Cascade</option>
+            <option value="3">IIR 8th Order Cascade</option>
+            <option value="4">IIR 10th Order Cascade</option>
+            <option value="5">IIR 12th Order Cascade</option>
+          </select>
+          <select id="eqInterpSelect" class="m3-select" style="flex: 1;">
+            <option value="1">Modified Akima Spline</option>
+            <option value="0">PCHIP Hermite Spline</option>
+          </select>
         </div>
-        <div class="eq-sliders-container" id="eqSlidersContainer">
-          <!-- Populated dynamically via JS -->
-        </div>
+
+        <!-- 15 Band Sliders Container -->
+        <div id="eqSlidersContainer" class="eq-sliders-grid"></div>
       </div>
     </article>
 
-    <!-- Dynamic Bass Boost Card -->
-    <article class="m3-card" data-category="bass" id="cardDynamicBass">
+    <!-- CARD 3: Dynamic Bass Exciter -->
+    <article class="m3-card" data-category="dynamics" id="cardDynamicBass">
       <div class="m3-card-header">
         <div class="card-header-left">
-          <div class="card-icon-container" style="color: #7CD4FD;">
+          <div class="card-icon-container">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/>
+              <path d="M2 10v4c0 4.4 3.6 8 8 8s8-3.6 8-8v-4M6 10V6a4 4 0 0 1 8 0v4"/>
             </svg>
           </div>
           <div class="card-titles">
-            <h3>Dynamic Bass Boost</h3>
-            <p>Harmonic sub-bass synthesis & compression</p>
+            <h3>Dynamic Bass Exciter</h3>
+            <p>Harmonic sub-bass synthesis & psychoacoustic bass</p>
           </div>
         </div>
         <div class="card-controls">
           <label class="m3-switch">
-            <input type="checkbox" id="switchBass">
-            <span class="switch-slider"></span>
+            <input type="checkbox" id="toggleDynamicBass">
+            <span class="m3-switch-track"></span>
           </label>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
         </div>
       </div>
       <div class="m3-card-body">
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Bass Gain</span>
-            <span class="slider-value" id="valBassGain">+6.0 dB</span>
-          </div>
-          <input type="range" class="m3-range-slider" id="sliderBassGain" min="0" max="15" step="0.5" value="6">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <select id="bassModeSelect" class="m3-select" style="flex: 1;">
+            <option value="0">Natural Bass (Sub-harmonic synthesis)</option>
+            <option value="1">Pure Sub-Bass (Low rumble emphasis)</option>
+            <option value="2">Resonant Bass (Punchy mid-bass punch)</option>
+          </select>
         </div>
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Cutoff Frequency</span>
-            <span class="slider-value" id="valBassCutoff">100 Hz</span>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Bass Strength</span>
+            <span class="value-badge" id="valBassGain">5.0 dB</span>
           </div>
-          <input type="range" class="m3-range-slider" id="sliderBassCutoff" min="55" max="200" step="5" value="100">
+          <input type="range" class="m3-slider" id="sliderBassGain" min="0" max="14" step="0.5" value="5">
         </div>
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Harmonic Saturation</span>
-            <span class="slider-value" id="valBassHarmonics">50%</span>
+        <div class="slider-row" style="margin-top: 12px;">
+          <div class="slider-header">
+            <span>Cutoff Frequency</span>
+            <span class="value-badge" id="valBassFreq">80 Hz</span>
           </div>
-          <input type="range" class="m3-range-slider" id="sliderBassHarmonics" min="0" max="100" step="5" value="50">
+          <input type="range" class="m3-slider" id="sliderBassFreq" min="30" max="250" step="5" value="80">
         </div>
       </div>
     </article>
 
-    <!-- Vacuum Tube 12AX7 Card -->
-    <article class="m3-card" data-category="spatial" id="cardTube">
+    <!-- CARD 4: Multi-Band Dynamic Compander -->
+    <article class="m3-card" data-category="dynamics" id="cardCompander">
       <div class="m3-card-header">
         <div class="card-header-left">
-          <div class="card-icon-container" style="color: #EFB8C8;">
+          <div class="card-icon-container">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 2v20M8 5a4 4 0 0 1 8 0v10a4 4 0 0 1-8 0Z"/>
+              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 12h10M12 7v10"/>
             </svg>
           </div>
           <div class="card-titles">
-            <h3>Vacuum Tube Simulator</h3>
-            <p>12AX7 triode 2nd-order analog warmth</p>
+            <h3>Multi-Band Dynamic Compander</h3>
+            <p>Time-frequency STFT dynamics processor</p>
           </div>
         </div>
         <div class="card-controls">
           <label class="m3-switch">
-            <input type="checkbox" id="switchTube">
-            <span class="switch-slider"></span>
+            <input type="checkbox" id="toggleCompander">
+            <span class="m3-switch-track"></span>
           </label>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
         </div>
       </div>
       <div class="m3-card-body">
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Drive</span>
-            <span class="slider-value" id="valTubeDrive">30%</span>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Threshold</span>
+            <span class="value-badge" id="valCompThreshold">-18.0 dBFS</span>
           </div>
-          <input type="range" class="m3-range-slider" id="sliderTubeDrive" min="0" max="100" step="2" value="30">
+          <input type="range" class="m3-slider" id="sliderCompThreshold" min="-40" max="0" step="0.5" value="-18">
         </div>
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Warmth / Triode Bias</span>
-            <span class="slider-value" id="valTubeWarmth">50%</span>
+        <div class="slider-row" style="margin-top: 12px;">
+          <div class="slider-header">
+            <span>Ratio</span>
+            <span class="value-badge" id="valCompRatio">2.5 : 1</span>
           </div>
-          <input type="range" class="m3-range-slider" id="sliderTubeWarmth" min="0" max="100" step="5" value="50">
+          <input type="range" class="m3-slider" id="sliderCompRatio" min="1" max="12" step="0.1" value="2.5">
+        </div>
+        <div class="slider-row" style="margin-top: 12px;">
+          <div class="slider-header">
+            <span>Attack Time</span>
+            <span class="value-badge" id="valCompAttack">20.0 ms</span>
+          </div>
+          <input type="range" class="m3-slider" id="sliderCompAttack" min="1" max="100" step="1" value="20">
+        </div>
+        <div class="slider-row" style="margin-top: 12px;">
+          <div class="slider-header">
+            <span>Release Time</span>
+            <span class="value-badge" id="valCompRelease">120.0 ms</span>
+          </div>
+          <input type="range" class="m3-slider" id="sliderCompRelease" min="20" max="500" step="5" value="120">
         </div>
       </div>
     </article>
 
-    <!-- BS2B Crossfeed Card -->
-    <article class="m3-card" data-category="spatial" id="cardCrossfeed">
+    <!-- CARD 5: 12AX7 Vacuum Tube Triode Saturation -->
+    <article class="m3-card" data-category="analog" id="cardTube">
       <div class="m3-card-header">
         <div class="card-header-left">
-          <div class="card-icon-container" style="color: #D0BCFF;">
+          <div class="card-icon-container">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 3h6v6a3 3 0 0 1-3 3 3 3 0 0 1-3-3V3z"/><path d="M12 12v9M8 21h8"/>
+            </svg>
+          </div>
+          <div class="card-titles">
+            <h3>12AX7 Vacuum Tube Preamp</h3>
+            <p>Even/odd triode harmonic warmth & soft-clipping</p>
+          </div>
+        </div>
+        <div class="card-controls">
+          <label class="m3-switch">
+            <input type="checkbox" id="toggleTube">
+            <span class="m3-switch-track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="m3-card-body">
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Tube Overdrive</span>
+            <span class="value-badge" id="valTubeDrive">15 %</span>
+          </div>
+          <input type="range" class="m3-slider" id="sliderTubeDrive" min="0" max="100" step="1" value="15">
+        </div>
+      </div>
+    </article>
+
+    <!-- CARD 6: ViPER-DDC Headphone Correction -->
+    <article class="m3-card" data-category="spatial" id="cardDdc">
+      <div class="m3-card-header">
+        <div class="card-header-left">
+          <div class="card-icon-container">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>
             </svg>
           </div>
           <div class="card-titles">
-            <h3>BS2B Binaural Crossfeed</h3>
-            <p>Reduces headphone fatigue via natural speaker cross-bleed</p>
+            <h3>ViPER-DDC Correction</h3>
+            <p>Cascaded Direct Form II SOS matrix</p>
           </div>
         </div>
         <div class="card-controls">
           <label class="m3-switch">
-            <input type="checkbox" id="switchCrossfeed">
-            <span class="switch-slider"></span>
+            <input type="checkbox" id="toggleDdc">
+            <span class="m3-switch-track"></span>
           </label>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
         </div>
       </div>
       <div class="m3-card-body">
-        <div class="m3-segmented-control">
-          <button class="segmented-btn active" id="btnCrossfeedChumoy">Chu Moy (700Hz / 4.5dB)</button>
-          <button class="segmented-btn" id="btnCrossfeedMeier">Jan Meier (650Hz / 9.5dB)</button>
-        </div>
-        <p style="font-size: 11px; color: var(--md-sys-color-on-surface-variant); line-height: 1.4;">
-          Blend delayed opposite-channel sound to simulate natural speaker room listening and alleviate isolation fatigue.
-        </p>
-      </div>
-    </article>
-
-    <!-- Stereo Widener Card -->
-    <article class="m3-card" data-category="spatial" id="cardWidener">
-      <div class="m3-card-header">
-        <div class="card-header-left">
-          <div class="card-icon-container" style="color: #CCC2DC;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-            </svg>
-          </div>
-          <div class="card-titles">
-            <h3>Stereo Soundstage Widener</h3>
-            <p>Mid/Side matrix soundstage expander</p>
-          </div>
-        </div>
-        <div class="card-controls">
-          <label class="m3-switch">
-            <input type="checkbox" id="switchWidener">
-            <span class="switch-slider"></span>
+        <div style="display: flex; gap: 8px;">
+          <select id="ddcProfileSelect" class="m3-select" style="flex: 1;">
+            <option value="Butterworth.vdc">Butterworth 24dB Filter (Butterworth.vdc)</option>
+            <option value="FrontRearContrast.vdc">Front-Rear Contrast (FrontRearContrast.vdc)</option>
+            <option value="mh750.vdc">Sony MH750 IEM Correction (mh750.vdc)</option>
+          </select>
+          <label class="m3-button secondary" style="cursor: pointer; padding: 6px 12px; font-size: 12px; border-radius: 8px;">
+            Import .vdc
+            <input type="file" id="inputCustomVdc" accept=".vdc" style="display: none;">
           </label>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </div>
-      </div>
-      <div class="m3-card-body">
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Stage Width</span>
-            <span class="slider-value" id="valWidth">140%</span>
-          </div>
-          <input type="range" class="m3-range-slider" id="sliderWidth" min="0" max="250" step="5" value="140">
         </div>
       </div>
     </article>
 
-    <!-- Convolver / FIR Engine Card -->
+    <!-- CARD 7: Partitioned Convolver -->
     <article class="m3-card" data-category="spatial" id="cardConvolver">
       <div class="m3-card-header">
         <div class="card-header-left">
-          <div class="card-icon-container" style="color: #7CD4FD;">
+          <div class="card-icon-container">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
           </div>
           <div class="card-titles">
-            <h3>FIR Convolver Engine</h3>
-            <p>Impulse response (.wav/.irs) acoustic simulation</p>
+            <h3>Partitioned Convolver</h3>
+            <p>True impulse responses with AdvImp waveform editor</p>
           </div>
         </div>
         <div class="card-controls">
           <label class="m3-switch">
-            <input type="checkbox" id="switchConvolver">
-            <span class="switch-slider"></span>
+            <input type="checkbox" id="toggleConvolver">
+            <span class="m3-switch-track"></span>
           </label>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
         </div>
       </div>
       <div class="m3-card-body">
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <button class="m3-action-btn outlined" id="btnLoadSyntheticIR" style="flex: 1; padding: 6px 10px; font-size: 11px;">Studio Room IR</button>
-          <label class="m3-action-btn" style="flex: 1; padding: 6px 10px; font-size: 11px; cursor: pointer; text-align: center;">
-            Upload .WAV
-            <input type="file" id="inputCustomIR" accept=".wav,.irs" style="display: none;">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <select id="convolverIrSelect" class="m3-select" style="flex: 1;">
+            <option value="Church.wav">Church Acoustics (Church.wav)</option>
+            <option value="CorredHRTF_Crossfeed.wav">HRTF Crossfeed (CorredHRTF_Crossfeed.wav)</option>
+            <option value="CorredHRTF_Surround1.wav">HRTF Surround I (CorredHRTF_Surround1.wav)</option>
+            <option value="CorredHRTF_Surround2.wav">HRTF Surround II (CorredHRTF_Surround2.wav)</option>
+            <option value="SwapChannels.wav">Swap L/R Stereo (SwapChannels.wav)</option>
+          </select>
+          <label class="m3-button secondary" style="cursor: pointer; padding: 6px 12px; font-size: 12px; border-radius: 8px;">
+            Upload .wav/.irs
+            <input type="file" id="inputCustomIr" accept=".wav,.irs" style="display: none;">
           </label>
         </div>
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Wet Mix</span>
-            <span class="slider-value" id="valConvolverWet">50%</span>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <select id="convolverModeSelect" class="m3-select" style="flex: 1;">
+            <option value="0">Standard Full IR</option>
+            <option value="1">AdvImp Energy Auto-Trim & Delays</option>
+            <option value="2">Minimum-Phase Cepstral Transform</option>
+          </select>
+        </div>
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>AdvImp Parameters</span>
+            <span class="value-badge" id="valAdvImp">-80;-100;0;0;0;0</span>
           </div>
-          <input type="range" class="m3-range-slider" id="sliderConvolverWet" min="0" max="100" step="5" value="50">
+          <input type="text" id="inputAdvImpString" class="m3-input" value="-80;-100;0;0;0;0" style="width: 100%; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-family: monospace;">
         </div>
       </div>
     </article>
 
-    <!-- Virtual Room Reverb Card -->
+    <!-- CARD 8: BS2B & Spatializer Crossfeed -->
+    <article class="m3-card" data-category="spatial" id="cardCrossfeed">
+      <div class="m3-card-header">
+        <div class="card-header-left">
+          <div class="card-icon-container">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><path d="M8 12a4 4 0 0 1 8 0"/>
+            </svg>
+          </div>
+          <div class="card-titles">
+            <h3>BS2B & Spatializer Crossfeed</h3>
+            <p>Fatigue reduction & out-of-head speaker simulation</p>
+          </div>
+        </div>
+        <div class="card-controls">
+          <label class="m3-switch">
+            <input type="checkbox" id="toggleCrossfeed">
+            <span class="m3-switch-track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="m3-card-body">
+        <select id="crossfeedModeSelect" class="m3-select" style="width: 100%;">
+          <option value="0">BS2B Weak (Chu Moy 700Hz / 4.5dB)</option>
+          <option value="1">BS2B Strong (Jan Meier 650Hz / 9.5dB)</option>
+          <option value="2">Out of Head (Acoustic space widening)</option>
+          <option value="3">Surround 1 (Mid-Side Haas crossfeed)</option>
+          <option value="4">Surround 2 (Deep 3D binaural dispersion)</option>
+          <option value="5">Joe0Bloggs Realistic Surround (Pinna shadow)</option>
+        </select>
+      </div>
+    </article>
+
+    <!-- CARD 9: Virtual Room Reverb -->
     <article class="m3-card" data-category="spatial" id="cardReverb">
       <div class="m3-card-header">
         <div class="card-header-left">
-          <div class="card-icon-container" style="color: #EFB8C8;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-            </svg>
-          </div>
-          <div class="card-titles">
-            <h3>Virtual Room Reverb</h3>
-            <p>Comb & feedback delay room simulation</p>
-          </div>
-        </div>
-        <div class="card-controls">
-          <label class="m3-switch">
-            <input type="checkbox" id="switchReverb">
-            <span class="switch-slider"></span>
-          </label>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </div>
-      </div>
-      <div class="m3-card-body">
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Room Size</span>
-            <span class="slider-value" id="valRoomSize">60%</span>
-          </div>
-          <input type="range" class="m3-range-slider" id="sliderRoomSize" min="10" max="92" step="2" value="60">
-        </div>
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Wet Level</span>
-            <span class="slider-value" id="valReverbWet">35%</span>
-          </div>
-          <input type="range" class="m3-range-slider" id="sliderReverbWet" min="0" max="100" step="5" value="35">
-        </div>
-      </div>
-    </article>
-
-    <!-- Master Limiter & Preamp Card -->
-    <article class="m3-card" data-category="all" id="cardLimiter">
-      <div class="m3-card-header">
-        <div class="card-header-left">
-          <div class="card-icon-container" style="color: #4CAF50;">
+          <div class="card-icon-container">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
             </svg>
           </div>
           <div class="card-titles">
-            <h3>Master Gain & Safety Limiter</h3>
-            <p>Preamp trim with -0.5 dBFS brickwall peak limiter</p>
+            <h3>Virtual Room Reverb</h3>
+            <p>Algorithmic room reflection & decay models</p>
           </div>
         </div>
         <div class="card-controls">
-          <span style="font-size: 11px; color: #4CAF50; font-weight: 600;">ACTIVE</span>
-          <svg class="chevron-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
+          <label class="m3-switch">
+            <input type="checkbox" id="toggleReverb">
+            <span class="m3-switch-track"></span>
+          </label>
         </div>
       </div>
       <div class="m3-card-body">
-        <div class="slider-group">
-          <div class="slider-label-row">
-            <span class="slider-label">Preamp Gain</span>
-            <span class="slider-value" id="valPreamp">0.0 dB</span>
+        <select id="reverbPresetSelect" class="m3-select" style="width: 100%;">
+          <option value="0">Default (Balanced Room)</option>
+          <option value="1">Small hall 1</option>
+          <option value="2">Small hall 2</option>
+          <option value="4">Medium hall</option>
+          <option value="5">Large hall</option>
+          <option value="7">Small room 1</option>
+          <option value="8">Small room 2</option>
+          <option value="9">Medium room</option>
+          <option value="11">Large room</option>
+          <option value="15">Plate high</option>
+          <option value="16">Plate low</option>
+          <option value="17">Long reverb 1</option>
+          <option value="18">Long reverb 2</option>
+        </select>
+      </div>
+    </article>
+
+    <!-- CARD 10: LiveProg DSP Scripting -->
+    <article class="m3-card" data-category="liveprog" id="cardLiveprog">
+      <div class="m3-card-header">
+        <div class="card-header-left">
+          <div class="card-icon-container">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+            </svg>
           </div>
-          <input type="range" class="m3-range-slider" id="sliderPreamp" min="-12" max="12" step="0.5" value="0">
+          <div class="card-titles">
+            <h3>LiveProg DSP Scripting</h3>
+            <p>Real-time EEL DSP VM with dynamic parameter GUI</p>
+          </div>
+        </div>
+        <div class="card-controls">
+          <label class="m3-switch">
+            <input type="checkbox" id="toggleLiveprog">
+            <span class="m3-switch-track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="m3-card-body">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <select id="liveprogScriptSelect" class="m3-select" style="flex: 1;">
+            <option value="viper_dynamicbass.eel">Dynamic Bass (viper_dynamicbass.eel)</option>
+            <option value="hadamVerb.eel">Hadamard Reverb (hadamVerb.eel)</option>
+            <option value="lofiDistortionMangler.eel">Lo-Fi Distortion Mangler (lofiDistortionMangler.eel)</option>
+            <option value="autoWideness.eel">Auto Stereo Wideness (autoWideness.eel)</option>
+            <option value="butterworth3Band.eel">Butterworth 3-Band (butterworth3Band.eel)</option>
+            <option value="delayChorus.eel">Delay Chorus (delayChorus.eel)</option>
+            <option value="depthsurround.eel">Depth Surround (depthsurround.eel)</option>
+            <option value="Joe0Bloggs DRX10K compander-HR.eel">Joe0Bloggs DRX10K Compander (Joe0Bloggs DRX10K.eel)</option>
+          </select>
+          <button class="m3-button secondary" id="btnOpenLiveprogIde" style="padding: 6px 12px; font-size: 12px; border-radius: 8px;">
+            Open IDE 💻
+          </button>
+        </div>
+
+        <!-- Dynamic LiveProg @param Sliders Container -->
+        <div id="liveprogDynamicGuiContainer"></div>
+      </div>
+    </article>
+
+    <!-- CARD 11: AutoEQ Headphone Database Search -->
+    <article class="m3-card" data-category="eq" id="cardAutoEq">
+      <div class="m3-card-header">
+        <div class="card-header-left">
+          <div class="card-icon-container">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <div class="card-titles">
+            <h3>AutoEQ Headphone Profiles</h3>
+            <p>Harmon Target calibration for 5,000+ headphones</p>
+          </div>
+        </div>
+      </div>
+      <div class="m3-card-body">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <input type="text" id="inputAutoEqSearch" class="m3-input" placeholder="Search headphone model (e.g. Sony WH-1000XM4, Sennheiser HD600)..." style="flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 13px;">
+          <button class="m3-button primary" id="btnAutoEqSearch" style="padding: 8px 16px; font-size: 13px; border-radius: 8px;">
+            Search
+          </button>
+        </div>
+        <div id="autoEqSearchResults" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"></div>
+      </div>
+    </article>
+
+    <!-- CARD 12: Stereo Field Expander -->
+    <article class="m3-card" data-category="spatial" id="cardStereoWiden">
+      <div class="m3-card-header">
+        <div class="card-header-left">
+          <div class="card-icon-container">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+          </div>
+          <div class="card-titles">
+            <h3>Stereo Field Expander</h3>
+            <p>Mid-Side soundstage width manipulation</p>
+          </div>
+        </div>
+        <div class="card-controls">
+          <label class="m3-switch">
+            <input type="checkbox" id="toggleStereoWiden">
+            <span class="m3-switch-track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="m3-card-body">
+        <div class="slider-row">
+          <div class="slider-header">
+            <span>Stereo Width</span>
+            <span class="value-badge" id="valStereoWidth">100 %</span>
+          </div>
+          <input type="range" class="m3-slider" id="sliderStereoWidth" min="0" max="200" step="5" value="100">
         </div>
       </div>
     </article>
 
   </main>
 
-  <!-- AutoEQ Modal -->
-  <div class="modal-overlay" id="autoEqModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>AutoEQ Headphone Profiles</h2>
-        <button class="modal-close-btn" id="closeAutoEqModalBtn">&times;</button>
-      </div>
-      <input type="text" class="m3-search-input" id="searchAutoEqInput" placeholder="Search headphone model (e.g. Sony, HD 600, AirPods)...">
-      <div class="autoeq-list" id="autoEqList">
-        <!-- Injected via JS -->
-      </div>
-    </div>
-  </div>
+  <!-- Floating Master Dock at Bottom -->
+  <footer class="m3-master-dock">
+    <!-- Settings Button (Left) -->
+    <button class="dock-action-btn" id="dockSettingsBtn" title="Theme & Device Settings">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
 
-  <!-- Presets Modal -->
-  <div class="modal-overlay" id="presetsModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Sound Profiles & Presets</h2>
-        <button class="modal-close-btn" id="closePresetsModalBtn">&times;</button>
+    <!-- Elevated Master Power FAB (Center 56x56px) -->
+    <button class="dock-fab active" id="dockMasterFab" title="Master DSP Power">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+      </svg>
+    </button>
+
+    <!-- 3-Dots Overflow Menu (Right) -->
+    <button class="dock-action-btn" id="dockOverflowBtn" title="Presets & Backup">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
+      </svg>
+    </button>
+  </footer>
+
+  <!-- Modal: Theme & Device Profile Settings -->
+  <dialog id="settingsDialog" class="m3-dialog">
+    <div class="m3-dialog-content">
+      <h2 style="margin-top: 0; font-size: 18px; font-weight: 600;">Theme & Appearance</h2>
+      <p style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); margin-bottom: 16px;">
+        Choose your dynamic Material 3 color palette.
+      </p>
+
+      <div class="theme-palette-grid">
+        <button class="theme-palette-chip active" data-theme="green-apple" style="border-color: #12702c;">🍏 Green Apple</button>
+        <button class="theme-palette-chip" data-theme="honey" style="border-color: #8b5000;">🍯 Honey Amber</button>
+        <button class="theme-palette-chip" data-theme="tidal-wave" style="border-color: #006495;">🌊 Tidal Wave</button>
+        <button class="theme-palette-chip" data-theme="strawberry-daiquiri" style="border-color: #984061;">🍓 Strawberry</button>
+        <button class="theme-palette-chip" data-theme="turquoise" style="border-color: #006a6a;">💎 Turquoise</button>
+        <button class="theme-palette-chip" data-theme="yotsuba" style="border-color: #556400;">🍀 Yotsuba</button>
+        <button class="theme-palette-chip" data-theme="yin-yang" style="border-color: #5e5e62;">☯️ Yin Yang</button>
+        <button class="theme-palette-chip" data-theme="monet" style="border-color: #575e71;">🎨 Monet Adaptive</button>
       </div>
-      <div class="autoeq-list" id="presetsList">
-        <!-- Injected via JS -->
-      </div>
-      <div style="display: flex; gap: 8px; margin-top: 8px;">
-        <button class="m3-action-btn outlined" id="btnExportPreset" style="flex: 1; font-size: 11px;">Export JSON</button>
-        <label class="m3-action-btn" style="flex: 1; font-size: 11px; cursor: pointer; text-align: center;">
-          Import JSON
-          <input type="file" id="inputImportPreset" accept=".json" style="display: none;">
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant);">
+        <div>
+          <span style="font-size: 14px; font-weight: 500;">AMOLED Pure Black</span>
+          <p style="font-size: 12px; margin: 0; color: var(--md-sys-color-on-surface-variant);">Deep black surfaces for OLED screens</p>
+        </div>
+        <label class="m3-switch">
+          <input type="checkbox" id="toggleAmoled">
+          <span class="m3-switch-track"></span>
         </label>
       </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+        <button class="m3-button primary" id="btnCloseSettings">Done</button>
+      </div>
     </div>
-  </div>
+  </dialog>
+
+  <!-- Modal: LiveProg IDE -->
+  <dialog id="liveprogIdeDialog" class="m3-dialog" style="max-width: 720px; width: 90vw; height: 80vh;">
+    <div class="m3-dialog-content" style="height: 100%; display: flex; flex-direction: column;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 600;">LiveProg DSP Script Editor</h2>
+        <button id="btnCloseIde" class="m3-icon-btn">&times;</button>
+      </div>
+      <div id="liveprogIdeContainer" style="flex: 1; min-height: 0;"></div>
+    </div>
+  </dialog>
+
+  <!-- Modal: Presets & Backup Manager -->
+  <dialog id="presetsDialog" class="m3-dialog">
+    <div class="m3-dialog-content">
+      <h2 style="margin-top: 0; font-size: 18px; font-weight: 600;">Preset & Archive Manager</h2>
+      <p style="font-size: 13px; color: var(--md-sys-color-on-surface-variant); margin-bottom: 16px;">
+        Backup and restore complete SoundSmith configuration archives.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="m3-button primary" id="btnExportPresetArchive">Export Configuration (JSON)</button>
+        <label class="m3-button secondary" style="cursor: pointer; text-align: center;">
+          Import Configuration Archive
+          <input type="file" id="inputImportPresetArchive" accept=".json" style="display: none;">
+        </label>
+        <button class="m3-button" id="btnResetToDefaults" style="color: var(--md-sys-color-error);">Reset All Settings to Factory Default</button>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+        <button class="m3-button primary" id="btnClosePresets">Done</button>
+      </div>
+    </div>
+  </dialog>
 
   <script type="module" src="index.js"></script>
 </body>

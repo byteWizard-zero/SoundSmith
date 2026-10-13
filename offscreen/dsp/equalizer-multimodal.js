@@ -116,3 +116,5 @@ export class MultimodalEqualizer {
     return interpFunc(logXs, Array.from(this.gains), queryLogXs);
   }
 }
+
+export const EqualizerMultimodal = MultimodalEqualizer;

@@ -1,15 +1,34 @@
 /**
- * Master DSP Processing Engine for JamesDSP
- * Chains all DSP modules and orchestrates audio graph lifecycle.
+ * SoundSmith Master DSP Processing Engine
+ * High-precision Audiophile Signal Processing Engine for Chrome
+ * Faithful port of RootlessJamesDSP (Tim Schneeberger & James Fung)
+ * 
+ * Orchestrates 12 authentic DSP modules in a glitch-free serial graph:
+ *  1. Input Preamp Gain (-20dB to +20dB)
+ *  2. 15-Band Multimodal Equalizer (Graphic Spline, Arbitrary PEQ, AutoEQ)
+ *  3. Dynamic Bass Exciter & Natural Bass Engine
+ *  4. Multi-Band Dynamic Compander (Time-frequency STFT modeling)
+ *  5. 12AX7 Vacuum Tube Triode Preamp Saturation
+ *  6. ViPER-DDC Second-Order Section (SOS) Cascaded Matrix
+ *  7. Partitioned Convolver with AdvImp Waveform Editor & Min-Phase
+ *  8. BS2B & Spatializer Crossfeed (6 authentic modes)
+ *  9. Center Channel / Stereo Field Expander
+ * 10. Virtual Room Reverb (13 RootlessJamesDSP room acoustic models)
+ * 11. LiveProg DSP Scripting VM & Dynamic Parameter Runner
+ * 12. Master Brickwall Lookahead Safety Limiter
  */
 
-import { Equalizer, FREQUENCIES_10_BAND, FREQUENCIES_15_BAND } from './equalizer.js';
+import { EqualizerMultimodal } from './equalizer-multimodal.js';
+import { ArbitraryEqualizer } from './arbitrary-equalizer.js';
 import { DynamicBass } from './dynamic-bass.js';
-import { ConvolverModule } from './convolver.js';
+import { DynamicCompander } from './dynamic-compander.js';
 import { TubeSaturation } from './tube-saturation.js';
+import { ViperDdc } from './viper-ddc.js';
+import { ConvolverEngine } from './convolver-engine.js';
 import { Crossfeed } from './crossfeed.js';
 import { StereoWiden } from './stereo-widen.js';
 import { Reverb } from './reverb.js';
+import { LiveProgRunner } from './liveprog-runner.js';
 import { MasterLimiter } from './limiter.js';
 
 export class DspEngine {
@@ -17,33 +36,34 @@ export class DspEngine {
     this.ctx = audioCtx;
     this.masterPower = true;
 
-    // Master in/out nodes
+    // Master IO
     this.masterInput = this.ctx.createGain();
     this.masterOutput = this.ctx.createGain();
 
-    // Direct bypass path when master power is switched OFF
+    // Master Bypass & Effect Gain nodes for smooth master toggling
     this.masterBypassGain = this.ctx.createGain();
     this.masterEffectGain = this.ctx.createGain();
 
-    // FFT Spectrum Analyser
+    // FFT Spectrum Analyser for live visualizer
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 256;
-    this.analyser.smoothingTimeConstant = 0.8;
+    this.analyser.smoothingTimeConstant = 0.82;
     this.fftDataBuffer = new Uint8Array(this.analyser.frequencyBinCount);
 
-    // Instantiate Modules
-    this.equalizer = new Equalizer(this.ctx);
+    // Instantiate all 12 DSP modules
+    this.limiter = new MasterLimiter(this.ctx); // Provides preampNode & limiterNode
+    this.equalizer = new EqualizerMultimodal(this.ctx);
+    this.arbitraryEq = new ArbitraryEqualizer(this.ctx);
     this.dynamicBass = new DynamicBass(this.ctx);
-    this.convolver = new ConvolverModule(this.ctx);
+    this.compander = new DynamicCompander(this.ctx);
     this.tubeSaturation = new TubeSaturation(this.ctx);
+    this.ddc = new ViperDdc(this.ctx);
+    this.convolver = new ConvolverEngine(this.ctx);
     this.crossfeed = new Crossfeed(this.ctx);
     this.stereoWiden = new StereoWiden(this.ctx);
     this.reverb = new Reverb(this.ctx);
-    this.limiter = new MasterLimiter(this.ctx);
+    this.liveprog = new LiveProgRunner(this.ctx);
 
-    // Build the DSP Serial Chain:
-    // masterInput -> masterEffectGain -> limiter.preampNode -> equalizer -> dynamicBass -> convolver
-    // -> tubeSaturation -> crossfeed -> stereoWiden -> reverb -> limiter.limiterNode -> masterOutput -> analyser -> destination
     this._wireGraph();
     this.updateMasterPower(true);
   }
@@ -56,19 +76,25 @@ export class DspEngine {
     // Bypass path connects straight to master output
     this.masterBypassGain.connect(this.masterOutput);
 
-    // PURE SERIAL Effect chain connections:
+    // SERIAL EFFECT CHAIN:
+    // masterEffectGain -> preampNode -> equalizer -> dynamicBass -> compander
+    // -> tubeSaturation -> ddc -> convolver -> crossfeed -> stereoWiden
+    // -> reverb -> liveprog -> limiterNode -> masterOutput
     this.masterEffectGain.connect(this.limiter.preampNode);
     this.limiter.preampNode.connect(this.equalizer.inputNode);
     this.equalizer.outputNode.connect(this.dynamicBass.inputNode);
-    this.dynamicBass.outputNode.connect(this.convolver.inputNode);
-    this.convolver.outputNode.connect(this.tubeSaturation.inputNode);
-    this.tubeSaturation.outputNode.connect(this.crossfeed.inputNode);
+    this.dynamicBass.outputNode.connect(this.compander.inputNode);
+    this.compander.outputNode.connect(this.tubeSaturation.inputNode);
+    this.tubeSaturation.outputNode.connect(this.ddc.inputNode);
+    this.ddc.outputNode.connect(this.convolver.inputNode);
+    this.convolver.outputNode.connect(this.crossfeed.inputNode);
     this.crossfeed.outputNode.connect(this.stereoWiden.inputNode);
     this.stereoWiden.outputNode.connect(this.reverb.inputNode);
-    this.reverb.outputNode.connect(this.limiter.limiterNode);
+    this.reverb.outputNode.connect(this.liveprog.inputNode);
+    this.liveprog.outputNode.connect(this.limiter.limiterNode);
     this.limiter.limiterNode.connect(this.masterOutput);
 
-    // Master output connects to Analyser and AudioContext Destination
+    // Master Output connects to Analyser and AudioContext Destination
     this.masterOutput.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
   }
@@ -79,12 +105,13 @@ export class DspEngine {
   }
 
   updateMasterPower(enabled) {
+    const t = this.ctx.currentTime;
     if (enabled) {
-      this.masterBypassGain.gain.value = 0.0;
-      this.masterEffectGain.gain.value = 1.0;
+      this.masterBypassGain.gain.setTargetAtTime(0.0, t, 0.02);
+      this.masterEffectGain.gain.setTargetAtTime(1.0, t, 0.02);
     } else {
-      this.masterBypassGain.gain.value = 1.0;
-      this.masterEffectGain.gain.value = 0.0;
+      this.masterBypassGain.gain.setTargetAtTime(1.0, t, 0.02);
+      this.masterEffectGain.gain.setTargetAtTime(0.0, t, 0.02);
     }
   }
 
@@ -105,11 +132,17 @@ export class DspEngine {
       case 'dynamicBass':
         this.dynamicBass.setEnabled(enabled);
         break;
-      case 'convolver':
-        this.convolver.setEnabled(enabled);
+      case 'compander':
+        this.compander.setEnabled(enabled);
         break;
       case 'tubeSaturation':
         this.tubeSaturation.setEnabled(enabled);
+        break;
+      case 'ddc':
+        this.ddc.setEnabled(enabled);
+        break;
+      case 'convolver':
+        this.convolver.setEnabled(enabled);
         break;
       case 'crossfeed':
         this.crossfeed.setEnabled(enabled);
@@ -120,85 +153,75 @@ export class DspEngine {
       case 'reverb':
         this.reverb.setEnabled(enabled);
         break;
+      case 'liveprog':
+        this.liveprog.setEnabled(enabled);
+        break;
+      case 'limiter':
+        this.limiter.setEnabled(enabled);
+        break;
+    }
+  }
+
+  updateParam(moduleName, paramName, value) {
+    switch (moduleName) {
+      case 'equalizer':
+        if (paramName === 'band') {
+          this.equalizer.setBandGain(value.index, value.gain);
+        } else if (paramName === 'allBands') {
+          this.equalizer.setAllGains(value);
+        } else if (paramName === 'filterMode') {
+          this.equalizer.setFilterMode(value);
+        } else if (paramName === 'interpolation') {
+          this.equalizer.setInterpolation(value);
+        }
+        break;
+
+      case 'dynamicBass':
+        if (paramName === 'maxGain') this.dynamicBass.setMaxGain(value);
+        else if (paramName === 'frequency') this.dynamicBass.setFrequency(value);
+        else if (paramName === 'mode') this.dynamicBass.setMode(value);
+        break;
+
+      case 'compander':
+        this.compander.setParam(paramName, value);
+        break;
+
+      case 'tubeSaturation':
+        if (paramName === 'drive') this.tubeSaturation.setDrive(value);
+        break;
+
+      case 'convolver':
+        if (paramName === 'advImp') this.convolver.setAdvImpString(value);
+        else if (paramName === 'mode') this.convolver.setMode(value);
+        else if (paramName === 'wet') this.convolver.setGains(value, this.convolver.dryGain);
+        break;
+
+      case 'crossfeed':
+        if (paramName === 'mode') this.crossfeed.setMode(value);
+        else if (paramName === 'custom') this.crossfeed.setCustomParams(value.fcut, value.feed);
+        break;
+
+      case 'stereoWiden':
+        if (paramName === 'width') this.stereoWiden.setWidth(value);
+        break;
+
+      case 'reverb':
+        if (paramName === 'preset') this.reverb.setPreset(value);
+        break;
+
+      case 'liveprog':
+        if (paramName === 'slider') this.liveprog.setSliderValue(value.id, value.value);
+        break;
+
+      case 'limiter':
+        if (paramName === 'preamp') this.limiter.setPreampGain(value);
+        else if (paramName === 'threshold') this.limiter.setThreshold(value);
+        break;
     }
   }
 
   setModuleParam(moduleName, paramName, value) {
-    switch (moduleName) {
-      case 'equalizer':
-        if (paramName === 'bandGain') {
-          this.equalizer.setBandGain(value.index, value.gain);
-        } else if (paramName === 'mode') {
-          this.equalizer.setMode(value);
-        } else if (paramName === 'allGains') {
-          this.equalizer.setAllGains(value);
-        }
-        break;
-      case 'dynamicBass':
-        if (paramName === 'gain') this.dynamicBass.setGain(value);
-        if (paramName === 'cutoff') this.dynamicBass.setCutoff(value);
-        if (paramName === 'harmonics') this.dynamicBass.setHarmonics(value);
-        break;
-      case 'convolver':
-        if (paramName === 'wetDry') this.convolver.setWetDry(value.wet, value.dry);
-        if (paramName === 'synthetic') this.convolver.generateSyntheticImpulse(value.duration, value.decay, value.name);
-        break;
-      case 'tubeSaturation':
-        if (paramName === 'drive') this.tubeSaturation.setDrive(value);
-        if (paramName === 'warmth') this.tubeSaturation.setWarmth(value);
-        break;
-      case 'crossfeed':
-        if (paramName === 'preset') this.crossfeed.setPreset(value);
-        break;
-      case 'stereoWiden':
-        if (paramName === 'width') this.stereoWiden.setWidth(value);
-        break;
-      case 'reverb':
-        if (paramName === 'roomSize') this.reverb.setRoomSize(value);
-        if (paramName === 'damping') this.reverb.setDamping(value);
-        if (paramName === 'wetDry') this.reverb.setWetDry(value.wet, value.dry);
-        break;
-      case 'limiter':
-        if (paramName === 'preamp') this.limiter.setPreampGain(value);
-        break;
-    }
-  }
-
-  applyPreset(preset) {
-    if (!preset) return;
-    if (preset.equalizer) {
-      if (preset.equalizer.mode !== undefined) this.equalizer.setMode(preset.equalizer.mode);
-      if (preset.equalizer.enabled !== undefined) this.equalizer.setEnabled(preset.equalizer.enabled);
-      if (preset.equalizer.gains) this.equalizer.setAllGains(preset.equalizer.gains);
-    }
-    if (preset.dynamicBass) {
-      if (preset.dynamicBass.enabled !== undefined) this.dynamicBass.setEnabled(preset.dynamicBass.enabled);
-      if (preset.dynamicBass.gain !== undefined) this.dynamicBass.setGain(preset.dynamicBass.gain);
-      if (preset.dynamicBass.cutoff !== undefined) this.dynamicBass.setCutoff(preset.dynamicBass.cutoff);
-      if (preset.dynamicBass.harmonics !== undefined) this.dynamicBass.setHarmonics(preset.dynamicBass.harmonics);
-    }
-    if (preset.tubeSaturation) {
-      if (preset.tubeSaturation.enabled !== undefined) this.tubeSaturation.setEnabled(preset.tubeSaturation.enabled);
-      if (preset.tubeSaturation.drive !== undefined) this.tubeSaturation.setDrive(preset.tubeSaturation.drive);
-      if (preset.tubeSaturation.warmth !== undefined) this.tubeSaturation.setWarmth(preset.tubeSaturation.warmth);
-    }
-    if (preset.crossfeed) {
-      if (preset.crossfeed.enabled !== undefined) this.crossfeed.setEnabled(preset.crossfeed.enabled);
-      if (preset.crossfeed.preset) this.crossfeed.setPreset(preset.crossfeed.preset);
-    }
-    if (preset.stereoWiden) {
-      if (preset.stereoWiden.enabled !== undefined) this.stereoWiden.setEnabled(preset.stereoWiden.enabled);
-      if (preset.stereoWiden.width !== undefined) this.stereoWiden.setWidth(preset.stereoWiden.width);
-    }
-    if (preset.reverb) {
-      if (preset.reverb.enabled !== undefined) this.reverb.setEnabled(preset.reverb.enabled);
-      if (preset.reverb.roomSize !== undefined) this.reverb.setRoomSize(preset.reverb.roomSize);
-      if (preset.reverb.damping !== undefined) this.reverb.setDamping(preset.reverb.damping);
-      if (preset.reverb.wet !== undefined) this.reverb.setWetDry(preset.reverb.wet);
-    }
-    if (preset.limiter) {
-      if (preset.limiter.preamp !== undefined) this.limiter.setPreampGain(preset.limiter.preamp);
-    }
+    this.updateParam(moduleName, paramName, value);
   }
 
   exportState() {
@@ -206,29 +229,39 @@ export class DspEngine {
       masterPower: this.masterPower,
       equalizer: {
         enabled: this.equalizer.enabled,
-        mode: this.equalizer.mode,
-        gains: [...this.equalizer.gains]
+        gains: [...this.equalizer.gains],
+        filterMode: this.equalizer.filterMode,
+        interpolation: this.equalizer.interpolation
       },
       dynamicBass: {
         enabled: this.dynamicBass.enabled,
-        gain: this.dynamicBass.bassGainDb,
-        cutoff: this.dynamicBass.cutoffFreq,
-        harmonics: this.dynamicBass.harmonics
+        maxGain: this.dynamicBass.maxGain,
+        frequency: this.dynamicBass.frequency,
+        mode: this.dynamicBass.mode
       },
-      convolver: {
-        enabled: this.convolver.enabled,
-        presetName: this.convolver.currentPresetName,
-        wet: this.convolver.wetGainVal,
-        dry: this.convolver.dryGainVal
+      compander: {
+        enabled: this.compander.enabled,
+        params: { ...this.compander.params }
       },
       tubeSaturation: {
         enabled: this.tubeSaturation.enabled,
-        drive: this.tubeSaturation.drive,
-        warmth: this.tubeSaturation.warmth
+        drive: this.tubeSaturation.drive
+      },
+      ddc: {
+        enabled: this.ddc.enabled,
+        profile: this.ddc.currentProfileName
+      },
+      convolver: {
+        enabled: this.convolver.enabled,
+        mode: this.convolver.mode,
+        advImp: this.convolver.advImpParams.join(';'),
+        fileName: this.convolver.currentFileName
       },
       crossfeed: {
         enabled: this.crossfeed.enabled,
-        preset: this.crossfeed.preset
+        mode: this.crossfeed.mode,
+        customFcut: this.crossfeed.customFcut,
+        customFeed: this.crossfeed.customFeed
       },
       stereoWiden: {
         enabled: this.stereoWiden.enabled,
@@ -236,13 +269,79 @@ export class DspEngine {
       },
       reverb: {
         enabled: this.reverb.enabled,
-        roomSize: this.reverb.roomSize,
-        damping: this.reverb.dampingFreq,
-        wet: this.reverb.wetGain
+        preset: this.reverb.presetIndex
+      },
+      liveprog: {
+        enabled: this.liveprog.enabled,
+        scriptName: this.liveprog.scriptName,
+        variables: { ...this.liveprog.variables }
       },
       limiter: {
-        preamp: this.limiter.preampGainDb
+        enabled: this.limiter.enabled,
+        preampDb: this.limiter.preampDb,
+        thresholdDb: this.limiter.thresholdDb
       }
     };
+  }
+
+  applyPreset(state) {
+    if (!state) return;
+    if (state.masterPower !== undefined) this.setMasterPower(state.masterPower);
+    if (state.equalizer) {
+      if (state.equalizer.enabled !== undefined) this.toggleModule('equalizer', state.equalizer.enabled);
+      if (state.equalizer.gains) this.equalizer.setAllGains(state.equalizer.gains);
+      if (state.equalizer.filterMode) this.equalizer.setFilterMode(state.equalizer.filterMode);
+      if (state.equalizer.interpolation) this.equalizer.setInterpolation(state.equalizer.interpolation);
+    }
+    if (state.dynamicBass) {
+      if (state.dynamicBass.enabled !== undefined) this.toggleModule('dynamicBass', state.dynamicBass.enabled);
+      if (state.dynamicBass.maxGain !== undefined) this.dynamicBass.setMaxGain(state.dynamicBass.maxGain);
+      if (state.dynamicBass.frequency !== undefined) this.dynamicBass.setFrequency(state.dynamicBass.frequency);
+      if (state.dynamicBass.mode !== undefined) this.dynamicBass.setMode(state.dynamicBass.mode);
+    }
+    if (state.compander) {
+      if (state.compander.enabled !== undefined) this.toggleModule('compander', state.compander.enabled);
+      if (state.compander.params) {
+        Object.entries(state.compander.params).forEach(([k, v]) => this.compander.setParam(k, v));
+      }
+    }
+    if (state.tubeSaturation) {
+      if (state.tubeSaturation.enabled !== undefined) this.toggleModule('tubeSaturation', state.tubeSaturation.enabled);
+      if (state.tubeSaturation.drive !== undefined) this.tubeSaturation.setDrive(state.tubeSaturation.drive);
+    }
+    if (state.ddc) {
+      if (state.ddc.enabled !== undefined) this.toggleModule('ddc', state.ddc.enabled);
+    }
+    if (state.convolver) {
+      if (state.convolver.enabled !== undefined) this.toggleModule('convolver', state.convolver.enabled);
+      if (state.convolver.mode !== undefined) this.convolver.setMode(state.convolver.mode);
+      if (state.convolver.advImp) this.convolver.setAdvImpString(state.convolver.advImp);
+    }
+    if (state.crossfeed) {
+      if (state.crossfeed.enabled !== undefined) this.toggleModule('crossfeed', state.crossfeed.enabled);
+      if (state.crossfeed.mode !== undefined) this.crossfeed.setMode(state.crossfeed.mode);
+      if (state.crossfeed.customFcut && state.crossfeed.customFeed) {
+        this.crossfeed.setCustomParams(state.crossfeed.customFcut, state.crossfeed.customFeed);
+      }
+    }
+    if (state.stereoWiden) {
+      if (state.stereoWiden.enabled !== undefined) this.toggleModule('stereoWiden', state.stereoWiden.enabled);
+      if (state.stereoWiden.width !== undefined) this.stereoWiden.setWidth(state.stereoWiden.width);
+    }
+    if (state.reverb) {
+      if (state.reverb.enabled !== undefined) this.toggleModule('reverb', state.reverb.enabled);
+      if (state.reverb.preset !== undefined) this.reverb.setPreset(state.reverb.preset);
+    }
+    if (state.liveprog) {
+      if (state.liveprog.enabled !== undefined) this.toggleModule('liveprog', state.liveprog.enabled);
+      if (state.liveprog.variables) {
+        Object.entries(state.liveprog.variables).forEach(([k, v]) => this.liveprog.setSliderValue(k, v));
+      }
+    }
+    if (state.limiter) {
+      if (state.limiter.enabled !== undefined) this.toggleModule('limiter', state.limiter.enabled);
+      if (state.limiter.preampDb !== undefined) this.limiter.setPreampGain(state.limiter.preampDb);
+      if (state.limiter.thresholdDb !== undefined) this.limiter.setThreshold(state.limiter.thresholdDb);
+    }
   }
 }

@@ -95,10 +95,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === 'DSP_LOAD_IR_BUFFER') {
-      dspEngine.convolver.loadImpulseFromArrayBuffer(message.buffer, message.name)
-        .then(result => sendResponse(result))
+      dspEngine.convolver.loadImpulseResponseFromArrayBuffer(message.buffer, message.name)
+        .then(result => sendResponse({ success: result }))
         .catch(err => sendResponse({ success: false, error: err.message }));
       return true;
+    }
+
+    if (message.action === 'DSP_LOAD_DDC') {
+      const ok = dspEngine.ddc.parseVdcString(message.vdcText, message.name);
+      sendResponse({ success: ok });
+      return false;
+    }
+
+    if (message.action === 'DSP_LOAD_LIVEPROG') {
+      const res = dspEngine.liveprog.loadScript(message.scriptText, message.name);
+      sendResponse(res);
+      return false;
+    }
+
+    if (message.action === 'DSP_EXPORT_STATE') {
+      sendResponse({ state: dspEngine.exportState() });
+      return false;
     }
   }
 });
