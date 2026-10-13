@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "JamesDSP for Chrome",
-  "version": "1.0.1",
-  "description": "High-fidelity audio processor inspired by JamesDSP with Material You UI, multi-band EQ, convolver, tube modeling, and crossfeed.",
+  "name": "SoundSmith Audio Studio",
+  "version": "2.0.0",
+  "description": "Audiophile Web Audio DSP Engine with Material You interface, multimodal EQ, convolver, tube modelling, and LiveProg scripting.",
   "permissions": [
     "tabCapture",
     "offscreen",
@@ -19,7 +19,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "JamesDSP Audio Studio",
+    "default_title": "SoundSmith Audio Studio",
     "default_popup": "ui/index.html",
     "default_icon": {
       "16": "ui/assets/icons/icon16.png",

@@ -1,0 +1,209 @@
+/**
+ * SoundSmith Audio Studio - Material You (M3) Design Tokens
+ * Reverse-engineered from RootlessJamesDSP Android theme engine.
+ */
+
+:root,
+[data-theme="green-apple"] {
+  --md-sys-color-background: #0f1510;
+  --md-sys-color-surface: #141c16;
+  --md-sys-color-surface-dim: #0b110c;
+  --md-sys-color-surface-container-lowest: #0a100b;
+  --md-sys-color-surface-container-low: #18221a;
+  --md-sys-color-surface-container: #1d281f;
+  --md-sys-color-surface-container-high: #243227;
+  --md-sys-color-surface-container-highest: #2c3c2f;
+
+  --md-sys-color-primary: #52dc74;              /* Vibrant Emerald Green */
+  --md-sys-color-on-primary: #003914;
+  --md-sys-color-primary-container: #12702c;    /* Active Card Header Green */
+  --md-sys-color-on-primary-container: #83fca3;
+
+  --md-sys-color-secondary: #b7ccb8;
+  --md-sys-color-on-secondary: #223526;
+  --md-sys-color-secondary-container: #384c3c;
+  --md-sys-color-on-secondary-container: #d3e8d3;
+
+  --md-sys-color-tertiary: #a1d0d5;
+  --md-sys-color-on-tertiary: #02363b;
+  --md-sys-color-tertiary-container: #1f4d52;
+  --md-sys-color-on-tertiary-container: #bcecf1;
+
+  --md-sys-color-outline: #424e44;
+  --md-sys-color-outline-variant: #28332a;
+  
+  --md-sys-color-text-primary: #e1e4df;
+  --md-sys-color-text-secondary: #9ea79f;
+  --md-sys-color-text-tertiary: #6b756c;
+  --md-sys-color-glow: rgba(82, 220, 116, 0.35);
+}
+
+/* Theme: Honey (Warm Amber) */
+[data-theme="honey"] {
+  --md-sys-color-background: #17130e;
+  --md-sys-color-surface: #1e1913;
+  --md-sys-color-surface-dim: #110d09;
+  --md-sys-color-surface-container-lowest: #0e0a07;
+  --md-sys-color-surface-container-low: #241e17;
+  --md-sys-color-surface-container: #2b241c;
+  --md-sys-color-surface-container-high: #352c23;
+  --md-sys-color-surface-container-highest: #40362b;
+
+  --md-sys-color-primary: #f5ba6d;              /* Warm Golden Amber */
+  --md-sys-color-on-primary: #432c00;
+  --md-sys-color-primary-container: #8b5000;
+  --md-sys-color-on-primary-container: #ffddb7;
+
+  --md-sys-color-secondary: #d9c3aa;
+  --md-sys-color-on-secondary: #3b2e1d;
+  --md-sys-color-secondary-container: #534432;
+  --md-sys-color-on-secondary-container: #f6dfc5;
+
+  --md-sys-color-outline: #514538;
+  --md-sys-color-outline-variant: #342a1f;
+
+  --md-sys-color-text-primary: #f0ebe4;
+  --md-sys-color-text-secondary: #baa896;
+  --md-sys-color-text-tertiary: #7d6e5e;
+  --md-sys-color-glow: rgba(245, 186, 109, 0.35);
+}
+
+/* Theme: Tidal Wave (Deep Blue) */
+[data-theme="tidal-wave"] {
+  --md-sys-color-background: #0d141c;
+  --md-sys-color-surface: #121c26;
+  --md-sys-color-surface-dim: #080d13;
+  --md-sys-color-surface-container-lowest: #060a0f;
+  --md-sys-color-surface-container-low: #172431;
+  --md-sys-color-surface-container: #1c2b3b;
+  --md-sys-color-surface-container-high: #243649;
+  --md-sys-color-surface-container-highest: #2d4259;
+
+  --md-sys-color-primary: #6ccbf5;
+  --md-sys-color-on-primary: #00344d;
+  --md-sys-color-primary-container: #0b5585;
+  --md-sys-color-on-primary-container: #bce5ff;
+
+  --md-sys-color-outline: #38485a;
+  --md-sys-color-outline-variant: #223040;
+
+  --md-sys-color-text-primary: #e0e8f0;
+  --md-sys-color-text-secondary: #90a5ba;
+  --md-sys-color-text-tertiary: #5d7185;
+  --md-sys-color-glow: rgba(108, 203, 245, 0.35);
+}
+
+/* Theme: Strawberry Daiquiri (Pink) */
+[data-theme="strawberry-daiquiri"] {
+  --md-sys-color-background: #180f12;
+  --md-sys-color-surface: #201418;
+  --md-sys-color-surface-container: #2b1b21;
+  --md-sys-color-surface-container-high: #36222a;
+  --md-sys-color-surface-container-highest: #432a34;
+
+  --md-sys-color-primary: #ffb2b8;
+  --md-sys-color-on-primary: #5f1124;
+  --md-sys-color-primary-container: #8f1d35;
+  --md-sys-color-on-primary-container: #ffd9dc;
+
+  --md-sys-color-outline: #5a3c44;
+  --md-sys-color-outline-variant: #3a2229;
+
+  --md-sys-color-text-primary: #f5e1e4;
+  --md-sys-color-text-secondary: #c29da4;
+  --md-sys-color-glow: rgba(255, 178, 184, 0.35);
+}
+
+/* Theme: Turquoise */
+[data-theme="turquoise"] {
+  --md-sys-color-background: #0b1716;
+  --md-sys-color-surface: #102120;
+  --md-sys-color-surface-container: #162c2b;
+  --md-sys-color-surface-container-high: #1d3837;
+  --md-sys-color-surface-container-highest: #254645;
+
+  --md-sys-color-primary: #4ddad5;
+  --md-sys-color-on-primary: #003735;
+  --md-sys-color-primary-container: #0e605d;
+  --md-sys-color-on-primary-container: #71f7f2;
+
+  --md-sys-color-outline: #385351;
+  --md-sys-color-outline-variant: #223b39;
+
+  --md-sys-color-text-primary: #def5f4;
+  --md-sys-color-text-secondary: #92baba;
+  --md-sys-color-glow: rgba(77, 218, 213, 0.35);
+}
+
+/* Theme: Yotsuba (Orange) */
+[data-theme="yotsuba"] {
+  --md-sys-color-background: #17110e;
+  --md-sys-color-surface: #201712;
+  --md-sys-color-surface-container: #2c2019;
+  --md-sys-color-surface-container-high: #382921;
+  --md-sys-color-surface-container-highest: #46342a;
+
+  --md-sys-color-primary: #ffb68c;
+  --md-sys-color-on-primary: #522300;
+  --md-sys-color-primary-container: #8c3e10;
+  --md-sys-color-on-primary-container: #ffdbcb;
+
+  --md-sys-color-outline: #554035;
+  --md-sys-color-outline-variant: #36261d;
+
+  --md-sys-color-text-primary: #f6e6de;
+  --md-sys-color-text-secondary: #bfa192;
+  --md-sys-color-glow: rgba(255, 182, 140, 0.35);
+}
+
+/* Theme: Yin & Yang (Monochrome) */
+[data-theme="yin-yang"] {
+  --md-sys-color-background: #111111;
+  --md-sys-color-surface: #191919;
+  --md-sys-color-surface-container: #222222;
+  --md-sys-color-surface-container-high: #2d2d2d;
+  --md-sys-color-surface-container-highest: #383838;
+
+  --md-sys-color-primary: #e6e6e6;
+  --md-sys-color-on-primary: #1a1a1a;
+  --md-sys-color-primary-container: #474747;
+  --md-sys-color-on-primary-container: #ffffff;
+
+  --md-sys-color-outline: #5c5c5c;
+  --md-sys-color-outline-variant: #383838;
+
+  --md-sys-color-text-primary: #ededed;
+  --md-sys-color-text-secondary: #ababab;
+  --md-sys-color-glow: rgba(230, 230, 230, 0.35);
+}
+
+/* AMOLED True Black Mode Modifier */
+[data-theme-amoled="true"] {
+  --md-sys-color-background: #000000 !important;
+  --md-sys-color-surface: #070707 !important;
+  --md-sys-color-surface-dim: #000000 !important;
+  --md-sys-color-surface-container-lowest: #000000 !important;
+  --md-sys-color-surface-container-low: #0c0c0c !important;
+  --md-sys-color-surface-container: #121212 !important;
+  --md-sys-color-surface-container-high: #1a1a1a !important;
+  --md-sys-color-surface-container-highest: #222222 !important;
+}
+
+/* Typography, Motion, and Shape Tokens */
+:root {
+  --font-family-primary: -apple-system, BlinkMacSystemFont, "Google Sans", "Segoe UI", Roboto, sans-serif;
+  --font-family-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --radius-pill: 9999px;
+
+  --motion-duration-short: 150ms;
+  --motion-duration-medium: 250ms;
+  --motion-duration-long: 400ms;
+  --motion-easing-standard: cubic-bezier(0.2, 0.0, 0, 1.0);
+  --motion-easing-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1.0);
+}
