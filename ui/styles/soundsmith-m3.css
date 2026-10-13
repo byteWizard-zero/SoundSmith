@@ -536,11 +536,13 @@ html, body {
 }
 
 .m3-slider.vertical {
-  writing-mode: bt-lr; /* IE */
-  -webkit-appearance: slider-vertical;
-  width: 10px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  accent-color: var(--md-sys-color-primary);
+  width: 14px;
   height: 110px;
   margin: 4px 0;
+  cursor: pointer;
 }
 
 /* Form Elements */

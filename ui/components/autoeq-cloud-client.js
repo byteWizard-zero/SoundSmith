@@ -52,3 +52,5 @@ export class AutoEqCloudClient {
     );
   }
 }
+
+export { AutoEqCloudClient as AutoEqClient };
