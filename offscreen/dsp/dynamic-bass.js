@@ -1,15 +1,15 @@
 /**
- * Dynamic Bass Boost Module for JamesDSP
- * Implements frequency-selective harmonic synthesis and dynamic compression.
+ * Dynamic Bass Boost Module for SoundSmith
+ * Matches RootlessJamesDSP PARAM_BASS_BOOST_* (118, 120).
+ * Maximum Gain range: 3.0 dB to 15.0 dB (step 1.0 dB).
  */
 
 export class DynamicBass {
   constructor(audioCtx) {
     this.ctx = audioCtx;
     this.enabled = false;
-    this.bassGainDb = 6.0;      // 0 to 15 dB
-    this.cutoffFreq = 100;      // 55 to 200 Hz
-    this.harmonics = 0.5;       // 0 to 1 (harmonic intensity)
+    this.maxGainDb = 5.0; // 3.0 to 15.0 dB (Default: 5.0 dB)
+    this.cutoffFreq = 100;
 
     this.inputNode = this.ctx.createGain();
     this.outputNode = this.ctx.createGain();
@@ -24,24 +24,21 @@ export class DynamicBass {
 
     // Harmonic saturator for upper bass perceptual enhancement
     this.harmonicShaper = this.ctx.createWaveShaper();
-    this.harmonicShaper.oversample = '2x';
+    this.harmonicShaper.oversample = '4x';
     this._updateHarmonicCurve();
 
-    // Bass dynamics compressor / limiter to avoid flabby blowout
+    // Bass dynamics compressor
     this.bassCompressor = this.ctx.createDynamicsCompressor();
-    this.bassCompressor.threshold.value = -12; // dB
-    this.bassCompressor.knee.value = 6;
+    this.bassCompressor.threshold.value = -12;
+    this.bassCompressor.knee.value = 4;
     this.bassCompressor.ratio.value = 4;
     this.bassCompressor.attack.value = 0.01;
-    this.bassCompressor.release.value = 0.1;
+    this.bassCompressor.release.value = 0.08;
 
-    // Bass boost gain
     this.boostGain = this.ctx.createGain();
-    this.setGain(this.bassGainDb);
+    this.setMaxGain(this.maxGainDb);
 
     // Audio Graph Routing:
-    // Input -> Dry -> Output
-    // Input -> Lowpass -> HarmonicShaper -> Compressor -> BoostGain -> Wet -> Output
     this.inputNode.connect(this.dryNode);
     this.dryNode.connect(this.outputNode);
 
@@ -58,16 +55,19 @@ export class DynamicBass {
   _updateHarmonicCurve() {
     const samples = 1024;
     const curve = new Float32Array(samples);
-    const h = this.harmonics;
-
     for (let i = 0; i < samples; i++) {
       const x = (i * 2) / samples - 1;
-      // Soft saturation with even + odd harmonic blend
-      const saturated = Math.tanh(1.5 * x);
-      const evenHarmonic = 0.5 * h * (x * x * (x > 0 ? 1 : -1));
+      const saturated = Math.tanh(1.6 * x);
+      const evenHarmonic = 0.4 * (x * x * (x > 0 ? 1 : -1));
       curve[i] = saturated + evenHarmonic;
     }
     this.harmonicShaper.curve = curve;
+  }
+
+  setMaxGain(gainDb) {
+    this.maxGainDb = Math.max(3.0, Math.min(15.0, gainDb));
+    const linearGain = Math.pow(10, this.maxGainDb / 20);
+    this.boostGain.gain.value = linearGain;
   }
 
   setEnabled(enabled) {
@@ -75,28 +75,7 @@ export class DynamicBass {
     this.updateBypassState();
   }
 
-  setGain(gainDb) {
-    this.bassGainDb = Math.max(0, Math.min(18, gainDb));
-    const linearGain = Math.pow(10, this.bassGainDb / 20);
-    this.boostGain.gain.setTargetAtTime(linearGain, this.ctx.currentTime, 0.02);
-  }
-
-  setCutoff(freq) {
-    this.cutoffFreq = Math.max(50, Math.min(250, freq));
-    this.lowpassFilter.frequency.setTargetAtTime(this.cutoffFreq, this.ctx.currentTime, 0.02);
-  }
-
-  setHarmonics(val) {
-    this.harmonics = Math.max(0, Math.min(1, val));
-    this._updateHarmonicCurve();
-  }
-
   updateBypassState() {
-    const t = this.ctx.currentTime;
-    if (this.enabled) {
-      this.wetNode.gain.setTargetAtTime(1.0, t, 0.02);
-    } else {
-      this.wetNode.gain.setTargetAtTime(0.0, t, 0.02);
-    }
+    this.wetNode.gain.value = this.enabled ? 1.0 : 0.0;
   }
 }
