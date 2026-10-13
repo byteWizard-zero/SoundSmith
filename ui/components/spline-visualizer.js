@@ -30,16 +30,18 @@ export const ROOTLESS_JAMESDSP_PRESETS = {
 export const SPLINE_PRESETS = ROOTLESS_JAMESDSP_PRESETS;
 
 export class SplineVisualizer {
-  /**
-   * @param {HTMLCanvasElement} canvasElement
-   * @param {HTMLElement} readoutStripElement
-   * @param {Function} onGainsChangeCallback
-   */
-  constructor(canvasElement, readoutStripElement, onGainsChangeCallback) {
+  constructor(canvasElement, arg2, arg3) {
     this.canvas = canvasElement;
     this.ctx = this.canvas.getContext('2d');
-    this.readoutStrip = readoutStripElement;
-    this.onGainsChange = onGainsChangeCallback;
+
+    // Support flexible signatures: (canvas, callback) OR (canvas, readoutElement, callback)
+    if (typeof arg2 === 'function') {
+      this.onGainsChange = arg2;
+      this.readoutStrip = arg3 || null;
+    } else {
+      this.readoutStrip = arg2 || null;
+      this.onGainsChange = arg3 || null;
+    }
 
     this.interpolatorType = 'akima'; // 'akima' or 'pchip'
     this.frequencies = ISO_FREQUENCIES_15;
@@ -57,16 +59,23 @@ export class SplineVisualizer {
     this.resize();
     this._bindTouchEvents();
     window.addEventListener('resize', () => this.resize());
+    
+    // Auto-start animation render loop
+    this.start();
   }
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
+    const width = rect.width > 0 ? rect.width : (this.canvas.parentElement?.clientWidth || 380);
+    const height = rect.height > 0 ? rect.height : 160;
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
+    
+    this.canvas.width = width * dpr;
+    this.canvas.height = height * dpr;
+    this.ctx.resetTransform?.();
     this.ctx.scale(dpr, dpr);
-    this.width = rect.width;
-    this.height = rect.height;
+    this.width = width;
+    this.height = height;
   }
 
   setGains(gainsArray) {
@@ -182,7 +191,7 @@ export class SplineVisualizer {
   }
 
   updateReadoutStrip() {
-    if (!this.readoutStrip) return;
+    if (!this.readoutStrip || typeof this.readoutStrip !== 'object' || !('innerHTML' in this.readoutStrip)) return;
     this.readoutStrip.innerHTML = Array.from(this.gains).map((g, idx) => {
       const isDragging = idx === this.draggedNodeIndex;
       const color = isDragging ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-text-secondary)';

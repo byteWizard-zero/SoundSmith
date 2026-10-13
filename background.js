@@ -54,7 +54,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Async response
   }
 
-  if (message.action === 'START_TAB_CAPTURE') {
+  if (message.action === 'START_TAB_CAPTURE' || message.action === 'POPUP_START_CAPTURE') {
     handleStartCapture(message.tabId, sendResponse);
     return true; // Async response
   }
@@ -64,17 +64,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.action === 'GET_DSP_STATUS') {
+  if (message.action === 'GET_DSP_STATUS' || message.action === 'OFFSCREEN_GET_STATUS') {
     // Relay query to offscreen
-    chrome.runtime.sendMessage({ action: 'OFFSCREEN_GET_STATUS', tabId: message.tabId }, (response) => {
-      sendResponse(response || { active: false });
-    });
+    ensureOffscreenDocument().then(() => {
+      chrome.runtime.sendMessage({ action: 'OFFSCREEN_GET_STATUS', tabId: message.tabId }, (response) => {
+        sendResponse(response || { active: false });
+      });
+    }).catch(() => sendResponse({ active: false }));
     return true;
   }
 
   if (message.action === 'OPEN_SIDE_PANEL') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs && tabs[0]) {
+      if (tabs && tabs[0] && chrome.sidePanel) {
         chrome.sidePanel.open({ windowId: tabs[0].windowId }).catch(console.error);
       }
     });
