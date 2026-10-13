@@ -123,7 +123,7 @@ class SoundSmithApp {
   _startFftLoop() {
     let lastTime = 0;
     const fetchFft = (time) => {
-      if (this.masterPower && this.visualizer && (time - lastTime > 40)) {
+      if (this.masterPower && this.visualizer && (time - lastTime > 66)) {
         lastTime = time;
         chrome.runtime.sendMessage({ action: 'DSP_GET_FFT' }, (res) => {
           if (chrome.runtime.lastError) return;
@@ -712,11 +712,42 @@ class SoundSmithApp {
   }
 
   _applyStateToUi() {
-    // Sliders
-    this.state.eqGains.forEach((g, i) => this._updateEqSliderUi(i, g));
-    this.visualizer?.setGains(this.state.eqGains);
+    // 1. Equalizer
+    if (this.state.eqGains && Array.isArray(this.state.eqGains)) {
+      this.state.eqGains.forEach((g, i) => this._updateEqSliderUi(i, g));
+      this.visualizer?.setGains(this.state.eqGains);
+    }
+    this._setSelectValue('eqFilterTypeSelect', this.state.eqFilterType);
+    this._setSelectValue('eqInterpSelect', this.state.eqInterpolation);
 
-    // Switches
+    // 2. Preamp & Limiter
+    this._setSliderValue('sliderPreampGain', 'valPreampGain', this.state.preampGain, ' dB');
+    this._setSliderValue('sliderLimiterThreshold', 'valLimiterThreshold', this.state.limiterThreshold, ' dBFS');
+
+    // 3. Dynamic Bass
+    this._setSliderValue('sliderBassGain', 'valBassGain', this.state.dynamicBassGain, ' dB');
+    this._setSliderValue('sliderBassFreq', 'valBassFreq', this.state.dynamicBassFreq, ' Hz');
+    this._setSelectValue('bassModeSelect', this.state.dynamicBassMode);
+
+    // 4. Compander
+    this._setSliderValue('sliderCompThreshold', 'valCompThreshold', this.state.compThreshold, ' dBFS');
+    this._setSliderValue('sliderCompRatio', 'valCompRatio', this.state.compRatio, ' : 1');
+    this._setSliderValue('sliderCompAttack', 'valCompAttack', this.state.compAttack, ' ms');
+    this._setSliderValue('sliderCompRelease', 'valCompRelease', this.state.compRelease, ' ms');
+
+    // 5. Tube Saturation
+    this._setSliderValue('sliderTubeDrive', 'valTubeDrive', this.state.tubeDrive, ' %');
+
+    // 6. Stereo Width
+    this._setSliderValue('sliderStereoWidth', 'valStereoWidth', this.state.stereoWidth, ' %');
+
+    // 7. Crossfeed
+    this._setSelectValue('crossfeedModeSelect', this.state.crossfeedMode);
+
+    // 8. Reverb
+    this._setSelectValue('reverbPresetSelect', this.state.reverbPreset);
+
+    // 9. Switches
     this._setSwitchState('toggleLimiter', this.state.limiterEnabled);
     this._setSwitchState('toggleEqualizer', this.state.eqEnabled);
     this._setSwitchState('toggleDynamicBass', this.state.dynamicBassEnabled);
@@ -730,11 +761,33 @@ class SoundSmithApp {
     this._setSwitchState('toggleStereoWiden', this.state.stereoWidenEnabled);
   }
 
+  _setSliderValue(sliderId, badgeId, value, unit) {
+    if (value === undefined || value === null) return;
+    const slider = document.getElementById(sliderId);
+    const badge = document.getElementById(badgeId);
+    if (slider) slider.value = value;
+    if (badge) badge.textContent = `${value}${unit}`;
+  }
+
+  _setSelectValue(selectId, value) {
+    if (value === undefined || value === null) return;
+    const el = document.getElementById(selectId);
+    if (el) el.value = value;
+  }
+
   _setSwitchState(id, checked) {
     const el = document.getElementById(id);
     if (el) {
       el.checked = !!checked;
-      el.dispatchEvent(new Event('change'));
+      const card = el.closest('.m3-card');
+      const header = card?.querySelector('.m3-card-header');
+      if (header) {
+        if (el.checked) {
+          header.classList.add('active-card');
+        } else {
+          header.classList.remove('active-card');
+        }
+      }
     }
   }
 }

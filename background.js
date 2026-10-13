@@ -12,11 +12,16 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('[SoundSmith] Extension installed and initialized.');
 });
 
-// Clean up capture when captured tab is closed
+let activeCapturedTabId = null;
+
+// Clean up capture only when the specifically captured tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
-  chrome.runtime.sendMessage({ action: 'OFFSCREEN_STOP_STREAM', tabId }, () => {
-    if (chrome.runtime.lastError) {} // Suppress
-  });
+  if (activeCapturedTabId && tabId === activeCapturedTabId) {
+    activeCapturedTabId = null;
+    chrome.runtime.sendMessage({ action: 'OFFSCREEN_STOP_STREAM', tabId }, () => {
+      if (chrome.runtime.lastError) {} // Suppress
+    });
+  }
 });
 
 /**
@@ -129,9 +134,12 @@ async function handleStartCapture(targetTabId, sendResponse) {
           if (chrome.runtime.lastError || !streamId) {
             const errMsg = chrome.runtime.lastError?.message || 'Failed to capture tab audio.';
             console.error('[SoundSmith] Failed to getMediaStreamId:', errMsg);
+            activeCapturedTabId = null;
             sendResponse({ success: false, active: false, error: errMsg });
             return;
           }
+
+          activeCapturedTabId = targetTabId;
 
           // Forward streamId to offscreen document
           chrome.runtime.sendMessage({
@@ -139,6 +147,9 @@ async function handleStartCapture(targetTabId, sendResponse) {
             streamId,
             tabId: targetTabId
           }, (res) => {
+            if (!res || !res.success) {
+              activeCapturedTabId = null;
+            }
             sendResponse(res || { success: true, active: true });
           });
         });
@@ -146,12 +157,14 @@ async function handleStartCapture(targetTabId, sendResponse) {
     });
   } catch (err) {
     console.error('[SoundSmith] handleStartCapture error:', err);
+    activeCapturedTabId = null;
     sendResponse({ success: false, active: false, error: err.message });
   }
 }
 
 async function handleStopCapture(targetTabId, sendResponse) {
   try {
+    activeCapturedTabId = null;
     chrome.runtime.sendMessage({
       action: 'OFFSCREEN_STOP_STREAM',
       tabId: targetTabId
@@ -159,6 +172,7 @@ async function handleStopCapture(targetTabId, sendResponse) {
       sendResponse(res || { success: true, active: false });
     });
   } catch (err) {
+    activeCapturedTabId = null;
     sendResponse({ success: false, active: false, error: err.message });
   }
 }

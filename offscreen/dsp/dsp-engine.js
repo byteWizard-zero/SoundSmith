@@ -286,62 +286,106 @@ export class DspEngine {
 
   applyPreset(state) {
     if (!state) return;
-    if (state.masterPower !== undefined) this.setMasterPower(state.masterPower);
-    if (state.equalizer) {
-      if (state.equalizer.enabled !== undefined) this.toggleModule('equalizer', state.equalizer.enabled);
-      if (state.equalizer.gains) this.equalizer.setAllGains(state.equalizer.gains);
-      if (state.equalizer.filterMode) this.equalizer.setFilterMode(state.equalizer.filterMode);
-      if (state.equalizer.interpolation) this.equalizer.setInterpolation(state.equalizer.interpolation);
-    }
-    if (state.dynamicBass) {
-      if (state.dynamicBass.enabled !== undefined) this.toggleModule('dynamicBass', state.dynamicBass.enabled);
-      if (state.dynamicBass.maxGain !== undefined) this.dynamicBass.setMaxGain(state.dynamicBass.maxGain);
-      if (state.dynamicBass.frequency !== undefined) this.dynamicBass.setFrequency(state.dynamicBass.frequency);
-      if (state.dynamicBass.mode !== undefined) this.dynamicBass.setMode(state.dynamicBass.mode);
-    }
-    if (state.compander) {
-      if (state.compander.enabled !== undefined) this.toggleModule('compander', state.compander.enabled);
-      if (state.compander.params) {
-        Object.entries(state.compander.params).forEach(([k, v]) => this.compander.setParam(k, v));
+    try {
+      if (state.masterPower !== undefined) this.setMasterPower(state.masterPower);
+
+      // Equalizer (nested or flat)
+      const eqState = state.equalizer || {};
+      const eqEnabled = state.eqEnabled !== undefined ? state.eqEnabled : eqState.enabled;
+      if (eqEnabled !== undefined) this.toggleModule('equalizer', eqEnabled);
+      const eqGains = state.eqGains || eqState.gains;
+      if (eqGains && Array.isArray(eqGains)) this.equalizer.setAllGains(eqGains);
+      const eqFilterType = state.eqFilterType !== undefined ? state.eqFilterType : eqState.filterMode;
+      if (eqFilterType !== undefined) this.equalizer.setFilterMode(eqFilterType);
+      const eqInterp = state.eqInterpolation !== undefined ? state.eqInterpolation : eqState.interpolation;
+      if (eqInterp !== undefined) this.equalizer.setInterpolation(eqInterp);
+
+      // Dynamic Bass (nested or flat)
+      const bassState = state.dynamicBass || {};
+      const bassEnabled = state.dynamicBassEnabled !== undefined ? state.dynamicBassEnabled : bassState.enabled;
+      if (bassEnabled !== undefined) this.toggleModule('dynamicBass', bassEnabled);
+      const bassGain = state.dynamicBassGain !== undefined ? state.dynamicBassGain : bassState.maxGain;
+      if (bassGain !== undefined) this.dynamicBass.setMaxGain(bassGain);
+      const bassFreq = state.dynamicBassFreq !== undefined ? state.dynamicBassFreq : bassState.frequency;
+      if (bassFreq !== undefined) this.dynamicBass.setFrequency(bassFreq);
+      const bassMode = state.dynamicBassMode !== undefined ? state.dynamicBassMode : bassState.mode;
+      if (bassMode !== undefined) this.dynamicBass.setMode(bassMode);
+
+      // Compander (nested or flat)
+      const compState = state.compander || {};
+      const compEnabled = state.companderEnabled !== undefined ? state.companderEnabled : compState.enabled;
+      if (compEnabled !== undefined) this.toggleModule('compander', compEnabled);
+      if (state.compThreshold !== undefined) this.compander.setParam('threshold', state.compThreshold);
+      if (state.compRatio !== undefined) this.compander.setParam('ratio', state.compRatio);
+      if (state.compAttack !== undefined) this.compander.setParam('attack', state.compAttack);
+      if (state.compRelease !== undefined) this.compander.setParam('release', state.compRelease);
+      if (compState.params) {
+        Object.entries(compState.params).forEach(([k, v]) => this.compander.setParam(k, v));
       }
-    }
-    if (state.tubeSaturation) {
-      if (state.tubeSaturation.enabled !== undefined) this.toggleModule('tubeSaturation', state.tubeSaturation.enabled);
-      if (state.tubeSaturation.drive !== undefined) this.tubeSaturation.setDrive(state.tubeSaturation.drive);
-    }
-    if (state.ddc) {
-      if (state.ddc.enabled !== undefined) this.toggleModule('ddc', state.ddc.enabled);
-    }
-    if (state.convolver) {
-      if (state.convolver.enabled !== undefined) this.toggleModule('convolver', state.convolver.enabled);
-      if (state.convolver.mode !== undefined) this.convolver.setMode(state.convolver.mode);
-      if (state.convolver.advImp) this.convolver.setAdvImpString(state.convolver.advImp);
-    }
-    if (state.crossfeed) {
-      if (state.crossfeed.enabled !== undefined) this.toggleModule('crossfeed', state.crossfeed.enabled);
-      if (state.crossfeed.mode !== undefined) this.crossfeed.setMode(state.crossfeed.mode);
-      if (state.crossfeed.customFcut && state.crossfeed.customFeed) {
-        this.crossfeed.setCustomParams(state.crossfeed.customFcut, state.crossfeed.customFeed);
+
+      // Tube Saturation (nested or flat)
+      const tubeState = state.tubeSaturation || {};
+      const tubeEnabled = state.tubeEnabled !== undefined ? state.tubeEnabled : tubeState.enabled;
+      if (tubeEnabled !== undefined) this.toggleModule('tubeSaturation', tubeEnabled);
+      const tubeDrive = state.tubeDrive !== undefined ? state.tubeDrive : tubeState.drive;
+      if (tubeDrive !== undefined) this.tubeSaturation.setDrive(tubeDrive);
+
+      // ViPER-DDC
+      const ddcState = state.ddc || {};
+      const ddcEnabled = state.ddcEnabled !== undefined ? state.ddcEnabled : ddcState.enabled;
+      if (ddcEnabled !== undefined) this.toggleModule('ddc', ddcEnabled);
+
+      // Convolver
+      const convState = state.convolver || {};
+      const convEnabled = state.convolverEnabled !== undefined ? state.convolverEnabled : convState.enabled;
+      if (convEnabled !== undefined) this.toggleModule('convolver', convEnabled);
+      const convMode = state.convolverMode !== undefined ? state.convolverMode : convState.mode;
+      if (convMode !== undefined) this.convolver.setMode(convMode);
+      const convAdv = state.convolverAdvImp || convState.advImp;
+      if (convAdv) this.convolver.setAdvImpString(convAdv);
+
+      // Crossfeed
+      const xfState = state.crossfeed || {};
+      const xfEnabled = state.crossfeedEnabled !== undefined ? state.crossfeedEnabled : xfState.enabled;
+      if (xfEnabled !== undefined) this.toggleModule('crossfeed', xfEnabled);
+      const xfMode = state.crossfeedMode !== undefined ? state.crossfeedMode : xfState.mode;
+      if (xfMode !== undefined) this.crossfeed.setMode(xfMode);
+      if (xfState.customFcut && xfState.customFeed) {
+        this.crossfeed.setCustomParams(xfState.customFcut, xfState.customFeed);
       }
-    }
-    if (state.stereoWiden) {
-      if (state.stereoWiden.enabled !== undefined) this.toggleModule('stereoWiden', state.stereoWiden.enabled);
-      if (state.stereoWiden.width !== undefined) this.stereoWiden.setWidth(state.stereoWiden.width);
-    }
-    if (state.reverb) {
-      if (state.reverb.enabled !== undefined) this.toggleModule('reverb', state.reverb.enabled);
-      if (state.reverb.preset !== undefined) this.reverb.setPreset(state.reverb.preset);
-    }
-    if (state.liveprog) {
-      if (state.liveprog.enabled !== undefined) this.toggleModule('liveprog', state.liveprog.enabled);
-      if (state.liveprog.variables) {
-        Object.entries(state.liveprog.variables).forEach(([k, v]) => this.liveprog.setSliderValue(k, v));
+
+      // Stereo Widen
+      const widenState = state.stereoWiden || {};
+      const widenEnabled = state.stereoWidenEnabled !== undefined ? state.stereoWidenEnabled : widenState.enabled;
+      if (widenEnabled !== undefined) this.toggleModule('stereoWiden', widenEnabled);
+      const stereoWidth = state.stereoWidth !== undefined ? (state.stereoWidth / 100) : widenState.width;
+      if (stereoWidth !== undefined) this.stereoWiden.setWidth(stereoWidth);
+
+      // Reverb
+      const revState = state.reverb || {};
+      const revEnabled = state.reverbEnabled !== undefined ? state.reverbEnabled : revState.enabled;
+      if (revEnabled !== undefined) this.toggleModule('reverb', revEnabled);
+      const revPreset = state.reverbPreset !== undefined ? state.reverbPreset : revState.preset;
+      if (revPreset !== undefined) this.reverb.setPreset(revPreset);
+
+      // LiveProg
+      const lpState = state.liveprog || {};
+      const lpEnabled = state.liveprogEnabled !== undefined ? state.liveprogEnabled : lpState.enabled;
+      if (lpEnabled !== undefined) this.toggleModule('liveprog', lpEnabled);
+      if (lpState.variables) {
+        Object.entries(lpState.variables).forEach(([k, v]) => this.liveprog.setSliderValue(k, v));
       }
-    }
-    if (state.limiter) {
-      if (state.limiter.enabled !== undefined) this.toggleModule('limiter', state.limiter.enabled);
-      if (state.limiter.preampDb !== undefined) this.limiter.setPreampGain(state.limiter.preampDb);
-      if (state.limiter.thresholdDb !== undefined) this.limiter.setThreshold(state.limiter.thresholdDb);
+
+      // Limiter & Preamp
+      const limState = state.limiter || {};
+      const limEnabled = state.limiterEnabled !== undefined ? state.limiterEnabled : limState.enabled;
+      if (limEnabled !== undefined) this.toggleModule('limiter', limEnabled);
+      const preamp = state.preampGain !== undefined ? state.preampGain : limState.preampDb;
+      if (preamp !== undefined) this.limiter.setPreampGain(preamp);
+      const thresh = state.limiterThreshold !== undefined ? state.limiterThreshold : limState.thresholdDb;
+      if (thresh !== undefined) this.limiter.setThreshold(thresh);
+    } catch (err) {
+      console.warn('[SoundSmith DspEngine] Error in applyPreset:', err);
     }
   }
 }

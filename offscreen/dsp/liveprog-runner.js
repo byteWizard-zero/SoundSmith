@@ -23,9 +23,10 @@ export class LiveProgRunner {
     this.outputNode = this.ctx.createGain();
     this.bypassNode = this.ctx.createGain();
     
-    // Processor node (512-sample buffer for low latency real-time EEL processing)
-    this.bufferSize = 512;
+    // Processor node (2048-sample buffer for glitch-free stability)
+    this.bufferSize = 2048;
     this.procNode = this.ctx.createScriptProcessor(this.bufferSize, 2, 2);
+    this.procConnected = false;
 
     // Compiled JS functions
     this.initFn = null;
@@ -40,19 +41,20 @@ export class LiveProgRunner {
     this.inputNode.connect(this.bypassNode);
     this.bypassNode.connect(this.outputNode);
 
-    this.inputNode.connect(this.procNode);
-    this.procNode.connect(this.outputNode);
-
     // Real-time audio callback
     this.procNode.onaudioprocess = (e) => {
-      if (!this.enabled || !this.sampleFn) return;
-
       const inputL = e.inputBuffer.getChannelData(0);
       const inputR = e.inputBuffer.getChannelData(1);
       const outputL = e.outputBuffer.getChannelData(0);
       const outputR = e.outputBuffer.getChannelData(1);
-      const len = inputL.length;
 
+      if (!this.enabled || !this.sampleFn) {
+        outputL.set(inputL);
+        outputR.set(inputR);
+        return;
+      }
+
+      const len = inputL.length;
       try {
         for (let i = 0; i < len; i++) {
           const res = this.sampleFn(inputL[i], inputR[i]);
@@ -230,10 +232,25 @@ export class LiveProgRunner {
 
   updateBypassState() {
     const t = this.ctx.currentTime;
-    if (this.enabled) {
+    if (this.enabled && this.sampleFn) {
+      if (!this.procConnected) {
+        try {
+          this.inputNode.connect(this.procNode);
+          this.procNode.connect(this.outputNode);
+          this.procConnected = true;
+        } catch (e) {
+          console.warn('LiveProg procNode connect warning:', e);
+        }
+      }
       this.bypassNode.gain.setTargetAtTime(0, t, 0.02);
-      this.procNode.connect(this.outputNode);
     } else {
+      if (this.procConnected) {
+        try {
+          this.inputNode.disconnect(this.procNode);
+          this.procNode.disconnect();
+        } catch (e) {}
+        this.procConnected = false;
+      }
       this.bypassNode.gain.setTargetAtTime(1, t, 0.02);
     }
   }

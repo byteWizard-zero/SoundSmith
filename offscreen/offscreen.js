@@ -14,10 +14,12 @@ let activeTabId = null;
 async function initAudioContext() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)({
-      latencyHint: 'interactive'
+      latencyHint: 'playback'
     });
+    window._audioCtx = audioCtx;
     dspEngine = new DspEngine(audioCtx);
-    console.log('[SoundSmith Offscreen] AudioContext and DSP Engine initialized.');
+    window._dspEngine = dspEngine;
+    console.log('[SoundSmith Offscreen] AudioContext and DSP Engine initialized with playback latency.');
     await restoreSavedSettings();
   }
   if (audioCtx.state === 'suspended') {
@@ -166,15 +168,22 @@ async function handleInitStream(streamId, tabId, sendResponse) {
 
     // Close any previous stream cleanly
     if (activeMediaStream) {
+      const dummyAudio = document.getElementById('dummyKeepaliveAudio');
+      if (dummyAudio) dummyAudio.srcObject = null;
       activeMediaStream.getTracks().forEach(track => {
-        try { track.stop(); } catch (e) {}
+        try {
+          track.onended = null;
+          track.stop();
+        } catch (e) {}
       });
       activeMediaStream = null;
+      window._activeMediaStream = null;
     }
 
     if (currentSourceNode) {
       try { currentSourceNode.disconnect(); } catch (e) {}
       currentSourceNode = null;
+      window._currentSourceNode = null;
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -188,9 +197,18 @@ async function handleInitStream(streamId, tabId, sendResponse) {
     });
 
     activeMediaStream = stream;
+    window._activeMediaStream = stream;
     activeTabId = tabId;
 
+    // Anchor to dummy audio element to prevent Chromium GC stream dropping
+    const dummyAudio = document.getElementById('dummyKeepaliveAudio');
+    if (dummyAudio) {
+      dummyAudio.srcObject = stream;
+      dummyAudio.play().catch(() => {});
+    }
+
     currentSourceNode = audioCtx.createMediaStreamSource(stream);
+    window._currentSourceNode = currentSourceNode;
     currentSourceNode.connect(dspEngine.masterInput);
 
     // Apply stored user settings immediately to the active stream
@@ -201,11 +219,16 @@ async function handleInitStream(streamId, tabId, sendResponse) {
       await audioCtx.resume();
     }
 
-    // When the stream ends (e.g. user closes tab, navigates away)
-    stream.getAudioTracks()[0].onended = () => {
-      console.log('[SoundSmith Offscreen] Tab audio capture track ended.');
-      handleStopStream();
-    };
+    // When the stream ends (e.g. user closes captured tab, navigates away)
+    const audioTrack = stream.getAudioTracks()[0];
+    if (audioTrack) {
+      audioTrack.onended = () => {
+        if (activeMediaStream === stream) {
+          console.log('[SoundSmith Offscreen] Captured tab audio track ended.');
+          handleStopStream();
+        }
+      };
+    }
 
     console.log('[SoundSmith Offscreen] Stream successfully attached to DSP graph for tab:', tabId);
     sendResponse({ success: true, active: true, tabId });
@@ -216,17 +239,31 @@ async function handleInitStream(streamId, tabId, sendResponse) {
 }
 
 function handleStopStream(sendResponse) {
-  if (activeMediaStream) {
-    activeMediaStream.getTracks().forEach(track => {
-      try { track.stop(); } catch (e) {}
-    });
-    activeMediaStream = null;
+  try {
+    const dummyAudio = document.getElementById('dummyKeepaliveAudio');
+    if (dummyAudio) {
+      dummyAudio.srcObject = null;
+    }
+    if (activeMediaStream) {
+      activeMediaStream.getTracks().forEach(track => {
+        try {
+          track.onended = null;
+          track.stop();
+        } catch (e) {}
+      });
+      activeMediaStream = null;
+      window._activeMediaStream = null;
+    }
+    if (currentSourceNode) {
+      try { currentSourceNode.disconnect(); } catch (e) {}
+      currentSourceNode = null;
+      window._currentSourceNode = null;
+    }
+    activeTabId = null;
+    console.log('[SoundSmith Offscreen] Tab audio capture stopped, tab audio restored.');
+    if (sendResponse) sendResponse({ success: true, active: false });
+  } catch (err) {
+    console.error('[SoundSmith Offscreen] Error in handleStopStream:', err);
+    if (sendResponse) sendResponse({ success: false, active: false, error: err.message });
   }
-  if (currentSourceNode) {
-    try { currentSourceNode.disconnect(); } catch (e) {}
-    currentSourceNode = null;
-  }
-  activeTabId = null;
-  console.log('[SoundSmith Offscreen] Tab audio capture stopped, tab audio restored.');
-  if (sendResponse) sendResponse({ success: true, active: false });
 }

@@ -34,6 +34,8 @@ export class ConvolverEngine {
     this.wetGainNode = this.ctx.createGain();
     this.dryGainNode = this.ctx.createGain();
     this.makeupGainNode = this.ctx.createGain();
+    this.wetInputGate = this.ctx.createGain();
+    this.wetInputGate.gain.value = 0.0;
 
     this.wetGain = 1.0;
     this.dryGain = 0.0;
@@ -53,7 +55,8 @@ export class ConvolverEngine {
     this.dryGainNode.connect(this.outputNode);
 
     // Wet convolver path
-    this.inputNode.connect(this.convolverNode);
+    this.inputNode.connect(this.wetInputGate);
+    this.wetInputGate.connect(this.convolverNode);
     this.convolverNode.connect(this.wetGainNode);
     this.wetGainNode.connect(this.makeupGainNode);
     this.makeupGainNode.connect(this.outputNode);
@@ -329,10 +332,12 @@ export class ConvolverEngine {
     const t = this.ctx.currentTime;
     if (this.enabled && this.processedAudioBuffer) {
       this.bypassNode.gain.setTargetAtTime(0, t, 0.02);
+      this.wetInputGate.gain.setTargetAtTime(1, t, 0.02);
       this.wetGainNode.gain.setTargetAtTime(this.wetGain, t, 0.02);
       this.dryGainNode.gain.setTargetAtTime(this.dryGain, t, 0.02);
     } else {
       this.bypassNode.gain.setTargetAtTime(1, t, 0.02);
+      this.wetInputGate.gain.setTargetAtTime(0, t, 0.02);
       this.wetGainNode.gain.setTargetAtTime(0, t, 0.02);
       this.dryGainNode.gain.setTargetAtTime(0, t, 0.02);
     }

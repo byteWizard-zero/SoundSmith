@@ -47,6 +47,8 @@ export class Reverb {
     this.bypassNode = this.ctx.createGain();
     this.dryNode = this.ctx.createGain();
     this.wetNode = this.ctx.createGain();
+    this.wetInputGate = this.ctx.createGain();
+    this.wetInputGate.gain.value = 0.0;
 
     // Input Lowpass filter
     this.inputFilter = this.ctx.createBiquadFilter();
@@ -90,8 +92,9 @@ export class Reverb {
     this.dryNode.connect(this.outputNode);
 
     // 3. Reverb wet chain:
-    // Input -> InputFilter -> PreDelay -> Comb Bank
-    this.inputNode.connect(this.inputFilter);
+    // Input -> WetInputGate -> InputFilter -> PreDelay -> Comb Bank
+    this.inputNode.connect(this.wetInputGate);
+    this.wetInputGate.connect(this.inputFilter);
     this.inputFilter.connect(this.preDelayNode);
 
     // Create 8 parallel comb filters
@@ -173,7 +176,7 @@ export class Reverb {
     const rt60 = Math.max(0.2, config.rt60);
     this.combFilters.forEach(cf => {
       const g = Math.pow(10, (-3 * cf.baseDelay) / rt60);
-      cf.feedback.gain.setTargetAtTime(Math.min(0.98, g), t, 0.02);
+      cf.feedback.gain.setTargetAtTime(Math.min(0.92, g), t, 0.02);
       cf.dampFilter.frequency.setTargetAtTime(config.dmpLp, t, 0.02);
     });
 
@@ -206,10 +209,12 @@ export class Reverb {
     const t = this.ctx.currentTime;
     if (this.enabled) {
       this.bypassNode.gain.setTargetAtTime(0, t, 0.02);
+      this.wetInputGate.gain.setTargetAtTime(1, t, 0.02);
       this.dryNode.gain.setTargetAtTime(Math.pow(10, (REVERB_PRESETS[this.presetIndex]?.dryDb || -7) / 20), t, 0.02);
       this.wetNode.gain.setTargetAtTime(Math.pow(10, (REVERB_PRESETS[this.presetIndex]?.wetDb || 0) / 20), t, 0.02);
     } else {
       this.bypassNode.gain.setTargetAtTime(1, t, 0.02);
+      this.wetInputGate.gain.setTargetAtTime(0, t, 0.02);
       this.dryNode.gain.setTargetAtTime(0, t, 0.02);
       this.wetNode.gain.setTargetAtTime(0, t, 0.02);
     }

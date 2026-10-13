@@ -7,6 +7,8 @@ export class MasterLimiter {
   constructor(audioCtx) {
     this.ctx = audioCtx;
     this.preampGainDb = 0.0; // -12dB to +12dB
+    this.thresholdDb = -0.5;
+    this.enabled = true;
 
     // Input Preamp Stage (connects to head of effect chain)
     this.preampNode = this.ctx.createGain();
@@ -39,7 +41,7 @@ export class MasterLimiter {
     this.enabled = !!enabled;
     const t = this.ctx.currentTime;
     if (this.enabled) {
-      this.limiterNode.threshold.setTargetAtTime(this.thresholdDb || -0.5, t, 0.02);
+      this.limiterNode.threshold.setTargetAtTime(this.thresholdDb !== undefined ? this.thresholdDb : -0.5, t, 0.02);
       this.limiterNode.ratio.setTargetAtTime(20.0, t, 0.02);
     } else {
       this.limiterNode.threshold.setTargetAtTime(0.0, t, 0.02);
